@@ -1,4 +1,4 @@
-# AML Detection Project - Elliptic2 Dataset Processing
+# AML Detection Project - Elliptic2 Dataset
 
 Dự án phát hiện rửa tiền (Anti-Money Laundering) sử dụng dataset Elliptic2 với kiến trúc LAS-Mamba-GNN.
 
