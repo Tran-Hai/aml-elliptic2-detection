@@ -1,6 +1,6 @@
 # Data Processing Workflow Guide
 
-Hướng dẫn chi tiết quy trình xử lý data cho dự án AML Detection với constraint 4GB RAM.
+
 
 ---
 
@@ -48,7 +48,7 @@ ls -lh data/processed/index/
 
 ---
 
-## 📋 Phase 2: Extract Features (QUAN TRỌNG NHẤT)
+## 📋 Phase 2: Extract Features
 
 **ThờI gian**: 2-3 giờ  
 **RAM**: ~200 MB  
@@ -57,8 +57,6 @@ ls -lh data/processed/index/
 ### Mục tiêu
 Trích xuất 95 features từ `background_edges.csv` (78GB) và lưu thành individual files.
 
-### Challenge
-File 78GB không thể load vào RAM 4GB.
 
 ### Solution
 **Streaming với chunks**:
@@ -197,7 +195,7 @@ python src/data_processing/phase4_build_graph.py
 
 ## 🚀 Cách Chạy
 
-### Option 1: Chạy từng phase riêng lẻ (Khuyến nghị)
+### Option 1: Chạy từng phase riêng lẻ
 
 ```bash
 cd aml_project
@@ -225,11 +223,6 @@ cd aml_project
 ./scripts/run_processing.sh
 ```
 
-Script này sẽ hỏi bạn muốn chạy:
-1. All phases
-2. Specific phase
-3. Resume from checkpoint
-
 ### Option 3: Monitor RAM trong lúc chạy
 
 ```bash
@@ -242,26 +235,6 @@ python src/data_processing/phase2_extract_features.py
 # Logs will be saved to: logs/ram_usage.log
 ```
 
----
-
-## ⚠️ Lưu Ý Quan Trọng
-
-### 1. Phase 2 có thể bị gián đoạn
-- Mất điện, crash, hoặc muốn dừng nghỉ
-- **Luôn dùng checkpoint**: `python phase2_extract_features.py --resume`
-
-### 2. Disk space
-- Phase 2 tạo ~444k files → cần filesystem hỗ trợ nhiều files
-- Nếu gặp lỗi "too many files", có thể dùng SQLite thay vì CSV files
-
-### 3. ThờI gian
-- Phase 2 là bottleneck: 2-3 giờ
-- Có thể chạy overnight
-- Các phases khác rất nhanh
-
-### 4. Backup
-- Sau Phase 2, nên backup folder `data/processed/features/`
-- Nếu mất, phải chạy lại 2-3 giờ
 
 ---
 
@@ -281,33 +254,7 @@ data/processed/
 
 ---
 
-## 🔧 Troubleshooting
 
-### Issue: "Killed" hoặc crash trong Phase 2
-**Nguyên nhân**: RAM hết  
-**Giải pháp**:
-- Giảm CHUNK_SIZE trong config.py (50k → 25k)
-- Tăng swap space
-- Đóng các ứng dụng khác
-
-### Issue: "Too many open files"
-**Nguyên nhân**: OS limit  
-**Giải pháp**:
-```bash
-ulimit -n 65536  # Tăng limit
-```
-
-### Issue: Phase 2 chậm quá
-**Nguyên nhân**: Disk I/O bottleneck  
-**Giải pháp**:
-- Dùng SSD thay vì HDD
-- Hoặc chuyển sang SQLite (tôi có thể implement nếu cần)
-
-### Issue: Phase 3/4 không tìm thấy files
-**Nguyên nhân**: Phase trước chưa hoàn thành  
-**Giải pháp**: Kiểm tra logs và chạy lại phase trước
-
----
 
 ## ✅ Verification Checklist
 
@@ -320,11 +267,5 @@ Sau mỗi phase, kiểm tra:
 
 ---
 
-## 📞 Next Steps
-
-Sau khi hoàn thành data processing
-1. Review data quality (EDA trong notebooks/)
-2. Bắt đầu implement model (LAS-Mamba-GNN)
-3. Training và evaluation
 
 
