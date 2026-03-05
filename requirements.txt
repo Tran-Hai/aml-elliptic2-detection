@@ -1,0 +1,57 @@
+# AML Detection Project Dependencies
+# Optimized for 4GB RAM constraint
+
+# Core data processing
+pandas>=1.5.0
+numpy>=1.21.0
+scipy>=1.9.0
+
+# For chunked processing (alternative to pandas)
+# polars>=0.18.0  # Faster, lower memory than pandas (optional)
+# dask>=2023.0.0  # For out-of-core processing (optional)
+
+# Machine Learning
+scikit-learn>=1.1.0
+
+# Deep Learning (for later phases)
+torch>=2.0.0
+torch-geometric>=2.3.0
+torch-scatter
+torch-sparse
+
+# For Mamba implementation
+# causal-conv1d>=1.0.0  # Required for Mamba
+# mamba-ssm>=1.0.0      # Official Mamba implementation
+
+# Utilities
+tqdm>=4.64.0          # Progress bars
+psutil>=5.9.0         # Memory monitoring
+pyyaml>=6.0           # Configuration files
+python-dotenv>=0.20.0 # Environment variables
+
+# Visualization
+matplotlib>=3.5.0
+seaborn>=0.12.0
+plotly>=5.0.0
+
+# Logging
+loguru>=0.6.0         # Better logging
+
+# Jupyter (for notebooks)
+jupyter>=1.0.0
+ipykernel>=6.0.0
+ipython>=8.0.0
+
+# Development
+pytest>=7.0.0         # Testing
+black>=22.0.0         # Code formatting
+flake8>=5.0.0         # Linting
+mypy>=0.991           # Type checking
+
+# Memory profiling (for debugging)
+memory-profiler>=0.60.0
+
+# Note: Install PyTorch separately based on your system:
+# CPU only: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+# CUDA 11.8: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+# CUDA 12.1: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
