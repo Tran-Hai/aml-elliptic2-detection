@@ -1,5 +1,4 @@
 # AML Detection Project Dependencies
-# Optimized for 4GB RAM constraint
 
 # Core data processing
 pandas>=1.5.0
@@ -30,10 +29,7 @@ matplotlib>=3.5.0
 seaborn>=0.12.0
 plotly>=5.0.0
 
-<<<<<<< HEAD
 
-=======
->>>>>>> e7a7a91 (Update requirements.txt)
 # Jupyter (for notebooks)
 jupyter>=1.0.0
 ipykernel>=6.0.0
@@ -44,7 +40,6 @@ pytest>=7.0.0         # Testing
 black>=22.0.0         # Code formatting
 flake8>=5.0.0         # Linting
 
-# Note: Install PyTorch separately based on your system:
 # CPU only: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 # CUDA 11.8: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 # CUDA 12.1: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
