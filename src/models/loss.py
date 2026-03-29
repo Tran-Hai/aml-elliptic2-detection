@@ -1,6 +1,5 @@
 """
 Loss functions for AML Detection
-Handle class imbalance with weighted loss and focal loss
 """
 
 import numpy as np
