@@ -5,9 +5,7 @@ Utils package for AML Detection project
 from .metrics import (
     compute_metrics,
     print_metrics,
-    MetricsTracker,
-    compute_specificity,
-    compute_fpr
+    MetricsTracker
 )
 
 from .config import (
@@ -31,14 +29,9 @@ from .config import (
 )
 
 __all__ = [
-    # Metrics
     'compute_metrics',
     'print_metrics',
     'MetricsTracker',
-    'compute_specificity',
-    'compute_fpr',
-    
-    # Config
     'MODEL_CONFIG',
     'TRAINING_CONFIG',
     'LOSS_CONFIG',

@@ -1,6 +1,12 @@
 """
 LAS-Mamba-GNN Model
 Complete architecture combining LAS, Mamba, and Graph Neural Networks
+
+    Architecture:
+    1. LAS Layer: Analyze liquidity patterns from transaction sequences
+    2. Mamba Layer: Sequential modeling using State Space Models
+    3. GNN Layer: Graph structure encoding
+    4. Classifier: Final prediction
 """
 
 import torch
@@ -15,12 +21,7 @@ from .gnn_layer import GNNEncoder, create_gnn_encoder
 class LASMambaGNN(nn.Module):
     """
     LAS-Mamba-GNN: Complete model for AML detection
-    
-    Architecture:
-    1. LAS Layer: Analyze liquidity patterns from transaction sequences
-    2. Mamba Layer: Sequential modeling using State Space Models
-    3. GNN Layer: Graph structure encoding
-    4. Classifier: Final prediction
+
     
     Input:
         - node_features: Node feature vectors [N, feature_dim]
