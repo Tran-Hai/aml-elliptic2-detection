@@ -68,11 +68,7 @@ TRAINING_CONFIG = {
 
 
 LOSS_CONFIG = {
-    'loss_type': 'weighted_focal',
-    
-    'focal_gamma': 2.0,
-    'focal_alpha': 0.25,
-    
+    'loss_type': 'weighted_ce',
     'class_weights': [1.0, 41.47],
 }
 
