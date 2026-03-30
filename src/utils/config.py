@@ -81,17 +81,8 @@ TRAINING_CONFIG = {
 # LOSS CONFIGURATION
 
 LOSS_CONFIG = {
-    # Loss type: 'ce', 'weighted_ce', 'focal', 'weighted_focal'
-    "loss_type": "weighted_focal",
-    # Focal Loss parameters
-    "focal_gamma": 2.0,
-    "focal_alpha": 0.25,
-    # Class weights (calculated from data)
-    # Licit: 97.65%, Suspicious: 2.35%
-    # Ratio: 41.47:1
-    # 'class_weights': [1.0, 41.47],
-    # Alternative: balanced weights
-    "class_weights": [0.512, 20.75],  # total / (2 * count)
+    "loss_type": "weighted_ce",
+    "class_weights": [1.0, 41.47],
 }
 
 
