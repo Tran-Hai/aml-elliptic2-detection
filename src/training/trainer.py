@@ -64,6 +64,8 @@ class Trainer:
         """Train for one epoch with lazy batch loading."""
         self.model.train()
         
+        use_gnn = getattr(self.model, 'use_gnn', True)
+        
         train_mask = dataset.train_mask
         num_train_nodes = train_mask.sum().item()
         
@@ -73,13 +75,18 @@ class Trainer:
         num_batches_processed = 0
         
         indices = train_indices[np.random.permutation(num_train_nodes)]
-        full_edge_index = dataset.edge_index.to(self.device)
+        
+        if use_gnn:
+            full_edge_index = dataset.edge_index.to(self.device)
         
         for start in range(0, num_train_nodes, batch_size):
             end = min(start + batch_size, num_train_nodes)
             batch_indices = indices[start:end].tolist()
             
-            edge_index = get_local_edge_index(full_edge_index, batch_indices, self.device)
+            if use_gnn:
+                edge_index = get_local_edge_index(full_edge_index, batch_indices, self.device)
+            else:
+                edge_index = torch.empty((2, 0), dtype=torch.long, device=self.device)
             
             self.optimizer.zero_grad()
             
@@ -97,7 +104,7 @@ class Trainer:
                 self.scaler.scale(loss).backward()
                 self.scaler.unscale_(self.optimizer)
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip_norm)
-                self.scaler.step(self.scaler)
+                self.scaler.step(self.optimizer)
                 self.scaler.update()
             else:
                 logits = self.model(node_features, sequences, edge_index)
@@ -120,6 +127,8 @@ class Trainer:
         
         self.model.eval()
         
+        use_gnn = getattr(self.model, 'use_gnn', True)
+        
         mask_indices = torch.where(mask)[0].numpy()
         num_samples = len(mask_indices)
         
@@ -128,14 +137,18 @@ class Trainer:
         all_labels = []
         total_loss = 0.0
         
-        full_edge_index = dataset.edge_index.to(self.device)
+        if use_gnn:
+            full_edge_index = dataset.edge_index.to(self.device)
         
         with torch.no_grad():
             for start in range(0, num_samples, eval_batch_size):
                 end = min(start + eval_batch_size, num_samples)
                 batch_indices = mask_indices[start:end].tolist()
                 
-                edge_index = get_local_edge_index(full_edge_index, batch_indices, self.device)
+                if use_gnn:
+                    edge_index = get_local_edge_index(full_edge_index, batch_indices, self.device)
+                else:
+                    edge_index = torch.empty((2, 0), dtype=torch.long, device=self.device)
                 
                 sequences, labels = dataset.load_batch(batch_indices)
                 sequences = sequences.to(self.device)

@@ -40,6 +40,10 @@ MODEL_CONFIG = {
     'feature_dim': 96,
     
     'num_classes': 2,
+    
+    'use_las': True,
+    'use_mamba': True,
+    'use_gnn': True,
 }
 
 

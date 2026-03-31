@@ -84,6 +84,11 @@ def parse_args() -> argparse.Namespace:
         default=42,
         help="Random seed"
     )
+    parser.add_argument(
+        "--no-gnn",
+        action="store_true",
+        help="Disable GNN (use only LAS + Mamba)"
+    )
     return parser.parse_args()
 
 
@@ -134,11 +139,17 @@ def main() -> None:
         'batch_size': batch_size
     }
     
+    model_config = {
+        **MODEL_CONFIG,
+        'use_gnn': not args.no_gnn
+    }
+    
     print(f"\nCreating model...")
-    model = create_las_mamba_gnn(MODEL_CONFIG).to(device)
+    model = create_las_mamba_gnn(model_config).to(device)
     
     num_params = sum(p.numel() for p in model.parameters())
     print(f"  Model parameters: {num_params:,}")
+    print(f"  Using GNN: {not args.no_gnn}")
     
     class_weights = torch.tensor(LOSS_CONFIG['class_weights'], dtype=torch.float32, device=device)
     criterion = get_loss_function(
