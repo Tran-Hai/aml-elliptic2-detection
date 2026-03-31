@@ -11,12 +11,13 @@ import torch.nn.functional as F
 class LASPooling(nn.Module):
     """Pooling methods for sequence aggregation."""
     
-    def __init__(self, pool_type='attention'):
+    def __init__(self, pool_type='attention', hidden_dim=64):
         super().__init__()
         self.pool_type = pool_type
+        self.hidden_dim = hidden_dim
         
         if pool_type == 'attention':
-            self.attention = nn.Linear(96, 1)
+            self.attention = nn.Linear(hidden_dim, 1)
     
     def forward(self, x):
         """
@@ -64,8 +65,8 @@ class LASLayer(nn.Module):
         self.dropout = dropout
         
         # Pooling for each flow
-        self.in_pool = LASPooling(pool_type)
-        self.out_pool = LASPooling(pool_type)
+        self.in_pool = LASPooling(pool_type, hidden_dim)
+        self.out_pool = LASPooling(pool_type, hidden_dim)
         
         # Process each flow separately
         self.flow_encoder = nn.Sequential(

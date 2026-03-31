@@ -112,15 +112,16 @@ def main() -> None:
     print(f"  Graph: {graph_dir}")
     print(f"  Sequences: {sequences_dir}")
     
-    data = load_elliptic_dataset(str(graph_dir), str(sequences_dir))
-    data = data.to(device)
+    data = load_elliptic_dataset(str(graph_dir), str(sequences_dir), lazy=True)
+    data.edge_index = data.edge_index.to(device)
+    data.edge_attr = data.edge_attr.to(device)
     
     print(f"Dataset loaded:")
     print(f"  Nodes: {data.num_nodes:,}")
     print(f"  Edges: {data.num_edges:,}")
     print(f"  Train: {data.train_mask.sum():,}")
     print(f"  Val: {data.val_mask.sum():,}")
-    print(f"  Test: {data.test_mask:,}")
+    print(f"  Test: {data.test_mask.sum():,}")
     
     num_epochs = args.epochs if args.epochs is not None else TRAINING_CONFIG['num_epochs']
     batch_size = args.batch_size if args.batch_size is not None else TRAINING_CONFIG['batch_size']
@@ -169,7 +170,7 @@ def main() -> None:
     
     print(f"\nStarting training...")
     results = trainer.train(
-        data=data,
+        dataset=data,
         num_epochs=num_epochs,
         batch_size=batch_size,
         val_interval=1,

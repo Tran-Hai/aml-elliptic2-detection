@@ -65,27 +65,27 @@ class SSMBlock(nn.Module):
         x_gate = F.silu(self.x_proj_gate(x))
         
         # Project to state space
-        s = self.state_proj(x_gate)
+        s = self.state_proj(x_gate)  # [batch, seq_len, d_state]
         
         # A matrix with softplus for stability
-        A = -torch.exp(self.A_log.float())
+        A = -torch.exp(self.A_log.float())  # [d_model, d_state]
         
-        # Discretization (ZOH)
-        A_exp = torch.exp(A.unsqueeze(0) * torch.arange(seq_len, device=x.device).float().unsqueeze(1).unsqueeze(2))
-        
-        # State computation (simplified)
+        # State initialization
         if state is None:
             state = torch.zeros(batch, self.d_state, device=x.device)
         
         outputs = []
         for t in range(seq_len):
-            u = x_gate[:, t, :]
+            u = x_gate[:, t, :]  # [batch, d_model]
             
-            # State update
-            state = state * torch.exp(A.mean(dim=-1)) + s[:, t, :]
+            # State update: state = A_exp * state + input
+            # A diagonal approximation
+            A_diag = A.mean(dim=0)  # [d_state] - use mean across model dim
+            state = state * torch.exp(A_diag) + s[:, t, :]  # [batch, d_state]
             
-            # Output
-            y = torch.matmul(state, self.state_proj.weight) + self.D * u
+            # Output: y = C * state + D * u
+            state_proj = self.state_proj.weight  # [d_state, d_model]
+            y = torch.matmul(state, state_proj) + self.D * u  # [batch, d_model]
             outputs.append(y)
         
         output = torch.stack(outputs, dim=1)
