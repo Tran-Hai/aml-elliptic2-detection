@@ -39,7 +39,6 @@ pytest>=7.0.0
 black>=22.0.0
 flake8>=5.0.0
 
-# Note: Install PyTorch separately based on your system:
 # CPU only: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 # CUDA 11.8: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 # CUDA 12.1: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121

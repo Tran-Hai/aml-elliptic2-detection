@@ -42,48 +42,8 @@ The Elliptic2 dataset is a comprehensive Bitcoin transaction dataset for blockch
 | Licit (legitimate) | ~434,000 | 97.65% |
 | Suspicious | ~10,500 | 2.35% |
 
-**Note**: The dataset exhibits significant class imbalance (41:1 ratio), requiring special handling during model training.
-
 ---
 
-## Installation
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/Tran-Hai/aml-elliptic2-detection.git
-cd aml-elliptic2-detection
-```
-
-### 2. Create virtual environment
-
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# or
-.venv\Scripts\activate     # Windows
-```
-
-### 3. Install PyTorch (choose your version)
-
-```bash
-# CPU only
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-
-# CUDA 11.8
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-
-# CUDA 12.1
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-```
-
-### 4. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
----
 
 ## Data Processing Pipeline
 
@@ -299,13 +259,8 @@ aml-elliptic2-detection/
 - Python 3.10+
 - PyTorch 2.0+
 - PyTorch Geometric 2.3+
-- CUDA-capable GPU (recommended for training)
+- CUDA-capable GPU
 
----
-
-## License
-
-This project is for research purposes. See the original Elliptic2 dataset license for commercial use.
 
 ---
 
@@ -314,4 +269,3 @@ This project is for research purposes. See the original Elliptic2 dataset licens
 - [Elliptic2 Dataset](https://www.elliptic.co/) - Blockchain transaction dataset for AML research
 - [Mamba: State Space Models for Sequence Modeling](https://arxiv.org/abs/2312.00752)
 - [Graph Attention Networks](https://arxiv.org/abs/1710.10903)
-- [Focal Loss for Dense Object Detection](https://arxiv.org/abs/1708.02002)
