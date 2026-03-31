@@ -141,7 +141,7 @@ def main() -> None:
     
     model_config = {
         **MODEL_CONFIG,
-        'use_gnn': not args.no_gnn
+        'use_gnn': True
     }
     
     print(f"\nCreating model...")
@@ -149,7 +149,7 @@ def main() -> None:
     
     num_params = sum(p.numel() for p in model.parameters())
     print(f"  Model parameters: {num_params:,}")
-    print(f"  Using GNN: {not args.no_gnn}")
+    print(f"  Using GNN: True")
     
     class_weights = torch.tensor(LOSS_CONFIG['class_weights'], dtype=torch.float32, device=device)
     criterion = get_loss_function(
