@@ -48,15 +48,15 @@ MODEL_CONFIG = {
 
 
 TRAINING_CONFIG = {
-    'learning_rate': 0.001,
+    'learning_rate': 0.0001,
     'weight_decay': 0.0001,
     'optimizer': 'adam',
     
     'num_epochs': 100,
-    'batch_size': 256,
+    'batch_size': 128,
     
     'early_stopping_patience': 15,
-    'early_stopping_metric': 'val_f1',
+    'early_stopping_metric': 'f1',
     
     'use_scheduler': True,
     'scheduler_type': 'reduce_on_plateau',
