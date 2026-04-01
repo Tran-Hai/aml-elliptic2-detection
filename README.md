@@ -106,9 +106,6 @@ Output: `data/processed/graph/`
 python -m src.training.train \
     --graph-dir data/processed/graph \
     --sequences-dir data/processed/sequences \
-    --epochs 100 \
-    --batch-size 256 \
-    --lr 0.001
 ```
 
 Options:
