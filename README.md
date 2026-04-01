@@ -112,8 +112,8 @@ Options:
 - `--graph-dir`: Path to graph directory
 - `--sequences-dir`: Path to sequences directory
 - `--epochs`: Number of training epochs (default: 100)
-- `--batch-size`: Batch size (default: 256)
-- `--lr`: Learning rate (default: 0.001)
+- `--batch-size`: Batch size (default: 128)
+- `--lr`: Learning rate (default: 0.0001)
 - `--device`: Device to use: cuda/cpu/auto (default: auto)
 - `--seed`: Random seed (default: 42)
 
