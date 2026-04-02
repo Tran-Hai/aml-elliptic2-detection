@@ -321,31 +321,6 @@ tqdm>=4.64.0
 
 ---
 
-## Hardware Recommendations
-
-| Hardware | Batch Size | Training Speed |
-|----------|------------|---------------|
-| CPU only | 32-64 | ~15-25 min/epoch |
-| GPU 8GB | 128-256 | ~3-5 min/epoch |
-| GPU 16GB+ | 256-512 | ~1-2 min/epoch |
-
----
-
-## Troubleshooting
-
-### Training seems frozen at "Starting training..."
-This is normal - the first epoch takes longer due to DataLoader initialization. Progress will appear after batch 0 completes.
-
-### Out of Memory errors
-- Reduce batch size
-- Disable GNN with `--no-gnn` flag
-- Use gradient checkpointing
-
-### NaN losses
-- Check learning rate (try lowering to 0.0001)
-- Ensure class weights are properly configured
-
----
 
 ## References
 
@@ -353,8 +328,3 @@ This is normal - the first epoch takes longer due to DataLoader initialization. 
 - [Mamba: State Space Models for Sequence Modeling](https://arxiv.org/abs/2312.00752)
 - [Graph Attention Networks](https://arxiv.org/abs/1710.10903)
 
----
-
-## License
-
-This project is for research purposes.
