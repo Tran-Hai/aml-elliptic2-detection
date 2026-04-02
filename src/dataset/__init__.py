@@ -3,13 +3,15 @@ Dataset package for AML Detection
 """
 
 from .elliptic_dataset import (
-    EllipticInMemoryDataset,
+    FastEllipticDataset,
+    EllipticDataLoader,
     load_elliptic_dataset,
     get_data_info
 )
 
 __all__ = [
-    'EllipticInMemoryDataset',
+    'FastEllipticDataset',
+    'EllipticDataLoader',
     'load_elliptic_dataset',
     'get_data_info'
 ]

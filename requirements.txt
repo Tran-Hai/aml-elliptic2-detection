@@ -15,7 +15,6 @@ torch-scatter
 torch-sparse
 
 # Mamba (State Space Models)
-causal-conv1d>=1.0.0
 mamba-ssm>=1.0.0
 
 # Utilities

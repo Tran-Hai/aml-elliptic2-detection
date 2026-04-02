@@ -8,29 +8,7 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR
 from typing import Dict, Optional, Any
 import numpy as np
-
-
-def get_local_edge_index(full_edge_index, batch_indices, device):
-    """Create local edge index for a batch of nodes."""
-    batch_indices_set = set(batch_indices)
-    batch_node_to_local = {idx: i for i, idx in enumerate(batch_indices)}
-    
-    src = full_edge_index[0]
-    dst = full_edge_index[1]
-    
-    local_edges = []
-    for i in range(full_edge_index.shape[1]):
-        s = src[i].item()
-        d = dst[i].item()
-        if s in batch_indices_set and d in batch_indices_set:
-            local_edges.append([batch_node_to_local[s], batch_node_to_local[d]])
-    
-    if len(local_edges) > 0:
-        edge_index = torch.tensor(local_edges, dtype=torch.long, device=device).t()
-    else:
-        edge_index = torch.empty((2, 0), dtype=torch.long, device=device)
-    
-    return edge_index
+import sys
 
 
 class Trainer:
@@ -299,3 +277,255 @@ def create_scheduler(optimizer: torch.optim.Optimizer, config: Dict) -> Optional
         )
     
     return None
+
+
+def get_local_edge_index(full_edge_index, batch_global_indices, device):
+    """Create local edge index for a batch of nodes.
+    
+    Args:
+        full_edge_index: Global edge index [2, E] - uses GLOBAL node IDs
+        batch_global_indices: Global node IDs for this batch (not local 0,1,2...)
+        device: device to create tensor on
+    
+    Returns:
+        local_edge_index: Edge index with LOCAL node IDs (0 to batch_size-1)
+    """
+    # Convert to Python ints for consistent hashing
+    if isinstance(batch_global_indices, torch.Tensor):
+        batch_list = batch_global_indices.cpu().tolist()
+    else:
+        batch_list = list(batch_global_indices)
+    
+    # Build mapping: global_id -> local_id (all Python ints)
+    batch_node_to_local = {int(gid): i for i, gid in enumerate(batch_list)}
+    batch_global_set = set(batch_list)
+    
+    src = full_edge_index[0]
+    dst = full_edge_index[1]
+    
+    local_edges = []
+    for i in range(full_edge_index.shape[1]):
+        s = int(src[i].item())
+        d = int(dst[i].item())
+        if s in batch_global_set and d in batch_global_set:
+            local_edges.append([batch_node_to_local[s], batch_node_to_local[d]])
+    
+    if len(local_edges) > 0:
+        edge_index = torch.tensor(local_edges, dtype=torch.long, device=device).t()
+    else:
+        edge_index = torch.empty((2, 0), dtype=torch.long, device=device)
+    
+    return edge_index
+
+
+class OptimizedTrainer:
+    """
+    Optimized trainer for LAS-Mamba-GNN with DataLoader support.
+    Works with GPU, AMP, and parallel data loading.
+    """
+    
+    def __init__(
+        self,
+        model: nn.Module,
+        criterion: nn.Module,
+        optimizer: torch.optim.Optimizer,
+        device: torch.device,
+        scheduler: Optional[Any] = None,
+        grad_clip_norm: float = 1.0,
+        use_amp: bool = False,
+        print_fn=print
+    ):
+        self.model = model
+        self.criterion = criterion
+        self.optimizer = optimizer
+        self.device = device
+        self.scheduler = scheduler
+        self.grad_clip_norm = grad_clip_norm
+        self.use_amp = use_amp
+        self.print = print_fn
+        
+        self.scaler = torch.cuda.amp.GradScaler() if use_amp and device.type == 'cuda' else None
+    
+    def train_epoch_with_loader(self, train_loader, edge_index, use_gnn=True) -> Dict[str, float]:
+        """Train for one epoch using DataLoader."""
+        self.model.train()
+        
+        total_loss = 0.0
+        num_batches = 0
+        
+        for batch_idx, (sequences, labels, batch_global_indices) in enumerate(train_loader):
+            sequences = sequences.to(self.device)
+            labels = labels.to(self.device)
+            batch_global_indices = batch_global_indices.to(self.device)
+            
+            if use_gnn and edge_index is not None and edge_index.shape[1] > 0:
+                local_edge_index = get_local_edge_index(edge_index, batch_global_indices, self.device)
+            else:
+                local_edge_index = torch.empty((2, 0), dtype=torch.long, device=self.device)
+            
+            node_features = sequences.mean(dim=(1, 2))
+            
+            self.optimizer.zero_grad()
+            
+            logits = self.model(node_features, sequences, local_edge_index)
+            loss = self.criterion(logits, labels)
+            
+            if torch.isnan(loss):
+                continue
+            
+            loss.backward()
+            
+            has_nan_grad = False
+            for name, param in self.model.named_parameters():
+                if param.grad is not None and torch.isnan(param.grad).any():
+                    has_nan_grad = True
+                    break
+            
+            if has_nan_grad:
+                continue
+            
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip_norm)
+            self.optimizer.step()
+            
+            total_loss += loss.item()
+            num_batches += 1
+            
+            if batch_idx % 100 == 0:
+                print(f"  Batch {batch_idx}/{len(train_loader)}, Loss: {loss.item():.4f}")
+        
+        avg_loss = total_loss / num_batches if num_batches > 0 else 0.0
+        return {'loss': avg_loss}
+    
+    def evaluate_loader(self, data_loader, edge_index, use_gnn=True) -> Dict[str, float]:
+        """Evaluate model using DataLoader."""
+        from src.utils.metrics import compute_metrics
+        
+        self.model.eval()
+        
+        all_preds = []
+        all_probs = []
+        all_labels = []
+        total_loss = 0.0
+        num_batches = 0
+        
+        with torch.no_grad():
+            for sequences, labels, batch_global_indices in data_loader:
+                batch_global_indices = batch_global_indices.to(self.device)
+                sequences = sequences.to(self.device)
+                labels = labels.to(self.device)
+                
+                if use_gnn and edge_index is not None and edge_index.shape[1] > 0:
+                    local_edge_index = get_local_edge_index(edge_index, batch_global_indices, self.device)
+                else:
+                    local_edge_index = torch.empty((2, 0), dtype=torch.long, device=self.device)
+                
+                node_features = sequences.mean(dim=(1, 2))
+                
+                logits = self.model(node_features, sequences, local_edge_index)
+                
+                loss = self.criterion(logits, labels).item()
+                total_loss += loss
+                num_batches += 1
+                
+                probs = torch.softmax(logits, dim=1)[:, 1]
+                preds = logits.argmax(dim=1)
+                
+                all_preds.append(preds.cpu())
+                all_probs.append(probs.cpu())
+                all_labels.append(labels.cpu())
+        
+        all_preds = torch.cat(all_preds)
+        all_probs = torch.cat(all_probs)
+        all_labels = torch.cat(all_labels)
+        
+        avg_loss = total_loss / num_batches if num_batches > 0 else 0.0
+        
+        metrics = compute_metrics(all_labels, all_preds, all_probs)
+        metrics['loss'] = avg_loss
+        
+        return metrics
+    
+    def train_with_loaders(
+        self,
+        train_loader,
+        val_loader,
+        test_loader,
+        edge_index,
+        num_epochs: int,
+        val_interval: int = 1,
+        early_stopping_patience: int = 15,
+        early_stopping_metric: str = 'f1',
+        checkpoint_dir=None,
+        best_model_name: str = 'best_model.pt',
+        verbose: bool = True
+    ) -> Dict[str, Any]:
+        """Full training loop with DataLoaders."""
+        best_val_metric = -float('inf') if early_stopping_metric != 'loss' else float('inf')
+        patience_counter = 0
+        history = {
+            'train_loss': [],
+            'val_loss': [],
+            'val_f1': [],
+            'val_auc_pr': []
+        }
+        
+        use_gnn = getattr(self.model, 'use_gnn', True)
+        
+        for epoch in range(1, num_epochs + 1):
+            train_metrics = self.train_epoch_with_loader(train_loader, edge_index, use_gnn)
+            
+            log_msg = f"Epoch {epoch:03d} | train_loss={train_metrics['loss']:.4f}"
+            
+            if epoch % val_interval == 0:
+                val_metrics = self.evaluate_loader(val_loader, edge_index, use_gnn)
+                
+                history['val_loss'].append(val_metrics['loss'])
+                history['val_f1'].append(val_metrics['f1'])
+                history['val_auc_pr'].append(val_metrics.get('auc_pr', 0.0))
+                
+                log_msg += f" | val_loss={val_metrics['loss']:.4f} | val_f1={val_metrics['f1']:.4f} | val_auc_pr={val_metrics.get('auc_pr', 0.0):.4f}"
+                
+                current_metric = val_metrics.get(early_stopping_metric, val_metrics['f1'])
+                
+                if early_stopping_metric == 'loss':
+                    is_better = current_metric < best_val_metric
+                else:
+                    is_better = current_metric > best_val_metric
+                
+                if is_better:
+                    best_val_metric = current_metric
+                    patience_counter = 0
+                    
+                    if checkpoint_dir is not None:
+                        checkpoint_path = checkpoint_dir / best_model_name
+                        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+                        torch.save({
+                            'model_state_dict': self.model.state_dict(),
+                            'epoch': epoch,
+                            'val_metrics': val_metrics,
+                        }, checkpoint_path)
+                        if verbose:
+                            self.print(f"  -> Saved best model to {checkpoint_path}")
+                else:
+                    patience_counter += 1
+                
+                if self.scheduler is not None:
+                    if isinstance(self.scheduler, ReduceLROnPlateau):
+                        self.scheduler.step(val_metrics['loss'])
+                    elif isinstance(self.scheduler, CosineAnnealingLR):
+                        self.scheduler.step()
+                
+                if patience_counter >= early_stopping_patience:
+                    if verbose:
+                        self.print(f"Early stopping at epoch {epoch}")
+                    break
+            
+            history['train_loss'].append(train_metrics['loss'])
+            
+            if verbose:
+                self.print(log_msg)
+        
+        return {
+            'history': history,
+            'best_val_metric': best_val_metric
+        }

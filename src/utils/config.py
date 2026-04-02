@@ -53,7 +53,7 @@ TRAINING_CONFIG = {
     'optimizer': 'adam',
     
     'num_epochs': 100,
-    'batch_size': 128,
+    'batch_size': 256,
     
     'early_stopping_patience': 15,
     'early_stopping_metric': 'f1',
@@ -67,7 +67,8 @@ TRAINING_CONFIG = {
     'use_gradient_clipping': True,
     'max_grad_norm': 1.0,
     
-    'use_amp': False,
+    'use_amp': True,
+    'num_workers': 4,
 }
 
 

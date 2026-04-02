@@ -280,6 +280,11 @@ class GNNEncoder(nn.Module):
         Returns:
             Graph-encoded node features [N, out_features]
         """
+        # Handle empty edge index (no edges in batch)
+        if edge_index.shape[1] == 0:
+            # Return zero output (no information to aggregate)
+            return torch.zeros(x.size(0), self.out_features, device=x.device, dtype=x.dtype)
+        
         x = self.input_proj(x)
         
         for layer in self.layers:

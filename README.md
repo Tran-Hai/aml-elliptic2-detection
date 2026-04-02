@@ -14,11 +14,13 @@ This project implements a state-of-the-art solution to detect suspicious Bitcoin
 
 ### Key Features
 
-- Hybrid architecture combining sequence modeling and graph learning
-- Handles severe class imbalance (41:1 ratio) with weighted loss functions
-- Supports multiple GNN variants: GAT, GCN, GraphSAGE
-- Mini-batch training for large-scale graphs
-- Comprehensive evaluation metrics (F1, AUC-ROC, AUC-PR)
+- ✅ Hybrid architecture combining sequence modeling (LAS + Mamba) and graph learning (GNN)
+- ✅ Handles severe class imbalance (41:1 ratio) with weighted loss functions
+- ✅ Supports multiple GNN variants: GAT, GCN, GraphSAGE
+- ✅ Mini-batch training with local edge indexing for large-scale graphs
+- ✅ Memory-efficient lazy loading with DataLoader support
+- ✅ Comprehensive evaluation metrics (F1, AUC-ROC, AUC-PR)
+- ✅ Mixed precision (AMP) training support for GPU
 
 ---
 
@@ -31,7 +33,7 @@ The Elliptic2 dataset is a comprehensive Bitcoin transaction dataset for blockch
 | Component | Count |
 |-----------|-------|
 | Labeled Nodes | 444,521 |
-| Edges | 367,137 |
+| Edges | 734,274 |
 | Connected Components | 121,810 |
 | Features | 96 dimensions |
 
@@ -39,11 +41,59 @@ The Elliptic2 dataset is a comprehensive Bitcoin transaction dataset for blockch
 
 | Class | Count | Ratio |
 |-------|-------|-------|
-| Licit (legitimate) | ~434,000 | 97.65% |
-| Suspicious | ~10,500 | 2.35% |
+| Licit (legitimate) | 434,055 | 97.65% |
+| Suspicious | 10,466 | 2.35% |
 
 ---
 
+## Quick Start
+
+### Training
+
+```bash
+# Training with full LAS-Mamba-GNN
+python -m src.training.train \
+    --device cuda \
+    --batch-size 256 \
+    --epochs 100
+
+# Training without GNN
+python -m src.training.train \
+    --device cpu \
+    --batch-size 64 \
+    --epochs 100 \
+    --no-gnn
+```
+
+### Command Line Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--device` | Device to use: cuda/cpu/auto | auto |
+| `--batch-size` | Batch size | 256 |
+| `--epochs` | Number of epochs | 100 |
+| `--lr` | Learning rate | 0.0001 |
+| `--num-workers` | DataLoader workers | 4 |
+| `--no-gnn` | Disable GNN layer | False |
+| `--seed` | Random seed | 42 |
+
+### Evaluation
+
+```bash
+python -m src.training.evaluate \
+    --checkpoint checkpoints/best_model.pt \
+    --split test
+```
+
+### Inference
+
+```bash
+python -m src.training.infer \
+    --checkpoint checkpoints/best_model.pt \
+    --node-idx 12345
+```
+
+---
 
 ## Data Processing Pipeline
 
@@ -71,8 +121,6 @@ Extracts 95 features from transaction data:
 python -m src.data_processing.phase2_extract_features
 ```
 
-Output: `data/processed/features/`
-
 ### Phase 3: Build Sequences
 
 Creates temporal sequences for each node (K=50 transactions):
@@ -81,66 +129,12 @@ Creates temporal sequences for each node (K=50 transactions):
 python -m src.data_processing.phase3_build_sequences
 ```
 
-Output: `data/processed/sequences/`
-
 ### Phase 4: Build Graph
 
 Prepares graph structure for GNN training:
 
 ```bash
 python -m src.data_processing.phase4_build_graph
-```
-
-Output: `data/processed/graph/`
-- `edge_index.npy` - Edge connectivity
-- `edge_attr.npy` - Edge features
-- `train_val_test_split.pkl` - Data splits
-
----
-
-## Usage
-
-### Training
-
-```bash
-python -m src.training.train \
-    --graph-dir data/processed/graph \
-    --sequences-dir data/processed/sequences \
-    --epochs 100 \
-    --batch-size 256 \
-    --lr 0.001
-```
-
-Options:
-- `--graph-dir`: Path to graph directory
-- `--sequences-dir`: Path to sequences directory
-- `--epochs`: Number of training epochs (default: 100)
-- `--batch-size`: Batch size (default: 256)
-- `--lr`: Learning rate (default: 0.001)
-- `--device`: Device to use: cuda/cpu/auto (default: auto)
-- `--seed`: Random seed (default: 42)
-
-### Evaluation
-
-```bash
-python -m src.training.evaluate \
-    --graph-dir data/processed/graph \
-    --sequences-dir data/processed/sequences \
-    --checkpoint checkpoints/best_model.pt \
-    --split test
-```
-
-Options:
-- `--split`: Which split to evaluate: train/val/test (default: test)
-
-### Inference
-
-```bash
-python -m src.training.infer \
-    --graph-dir data/processed/graph \
-    --sequences-dir data/processed/sequences \
-    --checkpoint checkpoints/best_model.pt \
-    --node-idx 12345
 ```
 
 ---
@@ -197,11 +191,12 @@ MODEL_CONFIG = {
 }
 
 TRAINING_CONFIG = {
-    'learning_rate': 0.001,
+    'learning_rate': 0.0001,
     'weight_decay': 0.0001,
     'num_epochs': 100,
     'batch_size': 256,
     'early_stopping_patience': 15,
+    'use_amp': True,
 }
 
 LOSS_CONFIG = {
@@ -245,11 +240,10 @@ aml-elliptic2-detection/
 │   └── utils/                # Utilities
 │       ├── config.py
 │       └── metrics.py
-├── notebooks/                # Jupyter notebooks
-├── docs/                    # Documentation
-├── tests/                   # Unit tests
 ├── checkpoints/             # Model checkpoints
-└── requirements.txt         # Python dependencies
+├── logs/                   # Training logs
+├── results/                # Evaluation results
+└── requirements.txt        # Python dependencies
 ```
 
 ---
@@ -258,9 +252,44 @@ aml-elliptic2-detection/
 
 - Python 3.10+
 - PyTorch 2.0+
-- PyTorch Geometric 2.3+
-- CUDA-capable GPU
+- CUDA-capable GPU (recommended for training)
 
+### Python Dependencies
+
+```
+torch>=2.0.0
+torch-geometric>=2.3.0
+pandas>=1.5.0
+numpy>=1.21.0
+scikit-learn>=1.1.0
+tqdm>=4.64.0
+```
+
+---
+
+## Hardware Recommendations
+
+| Hardware | Batch Size | Training Speed |
+|----------|------------|---------------|
+| CPU only | 32-64 | ~15-25 min/epoch |
+| GPU 8GB | 128-256 | ~3-5 min/epoch |
+| GPU 16GB+ | 256-512 | ~1-2 min/epoch |
+
+---
+
+## Troubleshooting
+
+### Training seems frozen at "Starting training..."
+This is normal - the first epoch takes longer due to DataLoader initialization. Progress will appear after batch 0 completes.
+
+### Out of Memory errors
+- Reduce batch size
+- Disable GNN with `--no-gnn` flag
+- Use gradient checkpointing
+
+### NaN losses
+- Check learning rate (try lowering to 0.0001)
+- Ensure class weights are properly configured
 
 ---
 
@@ -269,3 +298,9 @@ aml-elliptic2-detection/
 - [Elliptic2 Dataset](https://www.elliptic.co/) - Blockchain transaction dataset for AML research
 - [Mamba: State Space Models for Sequence Modeling](https://arxiv.org/abs/2312.00752)
 - [Graph Attention Networks](https://arxiv.org/abs/1710.10903)
+
+---
+
+## License
+
+This project is for research purposes.

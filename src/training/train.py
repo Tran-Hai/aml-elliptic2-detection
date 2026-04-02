@@ -1,5 +1,6 @@
 """
 Training script for LAS-Mamba-GNN model
+Optimized for GPU training with efficient data loading
 """
 
 import argparse
@@ -16,10 +17,10 @@ import sys
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from src.dataset.elliptic_dataset import load_elliptic_dataset
+from src.dataset.elliptic_dataset import load_elliptic_dataset, FastEllipticDataset
 from src.models.las_mamba_gnn import create_las_mamba_gnn
 from src.models.loss import get_loss_function
-from src.training.trainer import Trainer, create_optimizer, create_scheduler
+from src.training.trainer import Trainer, create_optimizer, create_scheduler, OptimizedTrainer, get_local_edge_index
 from src.utils.config import (
     MODEL_CONFIG,
     TRAINING_CONFIG,
@@ -55,6 +56,12 @@ def parse_args() -> argparse.Namespace:
         help="Path to sequences directory"
     )
     parser.add_argument(
+        "--index-dir",
+        type=str,
+        default="data/processed/index",
+        help="Path to index directory"
+    )
+    parser.add_argument(
         "--epochs",
         type=int,
         default=None,
@@ -75,7 +82,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--device",
         type=str,
-        default="auto",
+        default="cuda",
         help="Device to use (cuda/cpu/auto)"
     )
     parser.add_argument(
@@ -88,6 +95,12 @@ def parse_args() -> argparse.Namespace:
         "--no-gnn",
         action="store_true",
         help="Disable GNN (use only LAS + Mamba)"
+    )
+    parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=4,
+        help="Number of workers for data loading"
     )
     return parser.parse_args()
 
@@ -112,21 +125,75 @@ def main() -> None:
     
     graph_dir = resolve_path(ROOT_DIR, args.graph_dir)
     sequences_dir = resolve_path(ROOT_DIR, args.sequences_dir)
+    index_dir = resolve_path(ROOT_DIR, args.index_dir)
     
+    print("=" * 60)
+    print("LAS-Mamba-GNN Training on Elliptic2 Dataset")
+    print("=" * 60)
     print(f"Loading dataset from:")
     print(f"  Graph: {graph_dir}")
     print(f"  Sequences: {sequences_dir}")
+    print(f"  Index: {index_dir}")
     
-    data = load_elliptic_dataset(str(graph_dir), str(sequences_dir), lazy=True)
-    data.edge_index = data.edge_index.to(device)
-    data.edge_attr = data.edge_attr.to(device)
+    train_dataset = FastEllipticDataset(
+        graph_dir=str(graph_dir),
+        sequences_dir=str(sequences_dir),
+        index_dir=str(index_dir),
+        split='train'
+    )
     
-    print(f"Dataset loaded:")
-    print(f"  Nodes: {data.num_nodes:,}")
-    print(f"  Edges: {data.num_edges:,}")
-    print(f"  Train: {data.train_mask.sum():,}")
-    print(f"  Val: {data.val_mask.sum():,}")
-    print(f"  Test: {data.test_mask.sum():,}")
+    val_dataset = FastEllipticDataset(
+        graph_dir=str(graph_dir),
+        sequences_dir=str(sequences_dir),
+        index_dir=str(index_dir),
+        split='val'
+    )
+    
+    test_dataset = FastEllipticDataset(
+        graph_dir=str(graph_dir),
+        sequences_dir=str(sequences_dir),
+        index_dir=str(index_dir),
+        split='test'
+    )
+    
+    from torch.utils.data import DataLoader
+    from src.training.trainer import OptimizedTrainer
+    
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=args.batch_size or TRAINING_CONFIG['batch_size'],
+        shuffle=True,
+        num_workers=args.num_workers,
+        pin_memory=True,
+        collate_fn=FastEllipticDataset.collate_fn
+    )
+    
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=args.batch_size or TRAINING_CONFIG['batch_size'],
+        shuffle=False,
+        num_workers=args.num_workers,
+        pin_memory=True,
+        collate_fn=FastEllipticDataset.collate_fn
+    )
+    
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=args.batch_size or TRAINING_CONFIG['batch_size'],
+        shuffle=False,
+        num_workers=args.num_workers,
+        pin_memory=True,
+        collate_fn=FastEllipticDataset.collate_fn
+    )
+    
+    edge_index = train_dataset.edge_index.to(device)
+    
+    print(f"\nDataset loaded:")
+    print(f"  Train: {len(train_dataset):,}")
+    print(f"  Val: {len(val_dataset):,}")
+    print(f"  Test: {len(test_dataset):,}")
+    print(f"  Device: {device}")
+    print(f"  Batch size: {args.batch_size or TRAINING_CONFIG['batch_size']}")
     
     num_epochs = args.epochs if args.epochs is not None else TRAINING_CONFIG['num_epochs']
     batch_size = args.batch_size if args.batch_size is not None else TRAINING_CONFIG['batch_size']
@@ -141,7 +208,7 @@ def main() -> None:
     
     model_config = {
         **MODEL_CONFIG,
-        'use_gnn': True
+        'use_gnn': not args.no_gnn
     }
     
     print(f"\nCreating model...")
@@ -149,7 +216,9 @@ def main() -> None:
     
     num_params = sum(p.numel() for p in model.parameters())
     print(f"  Model parameters: {num_params:,}")
-    print(f"  Using GNN: True")
+    print(f"  Using GNN: {not args.no_gnn}")
+    
+    class_weights = torch.tensor(LOSS_CONFIG['class_weights'], dtype=torch.float32, device=device)
     
     class_weights = torch.tensor(LOSS_CONFIG['class_weights'], dtype=torch.float32, device=device)
     criterion = get_loss_function(
@@ -167,44 +236,57 @@ def main() -> None:
     print(f"  Learning rate: {learning_rate}")
     print(f"  Loss: {LOSS_CONFIG['loss_type']}")
     print(f"  Class weights: {LOSS_CONFIG['class_weights']}")
+    print(f"  AMP enabled: {TRAINING_CONFIG.get('use_amp', False)}")
+    print(f"  Workers: {args.num_workers}")
     
-    trainer = Trainer(
+    trainer = OptimizedTrainer(
         model=model,
         criterion=criterion,
         optimizer=optimizer,
         device=device,
         scheduler=scheduler,
         grad_clip_norm=TRAINING_CONFIG.get('max_grad_norm', 1.0),
-        use_amp=TRAINING_CONFIG.get('use_amp', False),
+        use_amp=False,  # Disable AMP on CPU
         print_fn=print
     )
     
-    print(f"\nStarting training...")
-    results = trainer.train(
-        dataset=data,
+    print(f"\n{'='*60}")
+    print("Starting training...")
+    print(f"{'='*60}\n", flush=True)
+    import sys
+    sys.stdout.flush()
+    sys.stderr.flush()
+    
+    results = trainer.train_with_loaders(
+        train_loader=train_loader,
+        val_loader=val_loader,
+        test_loader=test_loader,
+        edge_index=edge_index,
         num_epochs=num_epochs,
-        batch_size=batch_size,
         val_interval=1,
         early_stopping_patience=TRAINING_CONFIG.get('early_stopping_patience', 15),
         early_stopping_metric=TRAINING_CONFIG.get('early_stopping_metric', 'val_f1'),
+        checkpoint_dir=ROOT_DIR / "checkpoints",
+        best_model_name="best_model.pt",
         verbose=True
     )
     
-    print(f"\nTraining completed!")
+    print(f"\n{'='*60}")
+    print("Training completed!")
     print(f"Best validation metric: {results['best_val_metric']:.4f}")
+    print(f"{'='*60}")
     
     print(f"\nEvaluating on test set...")
     checkpoint_dir = ROOT_DIR / "checkpoints"
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
     best_model_path = checkpoint_dir / "best_model.pt"
     
     if best_model_path.exists():
         checkpoint = torch.load(best_model_path, map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
         
-        test_metrics = trainer.evaluate(data, data.test_mask)
+        test_metrics = trainer.evaluate_loader(test_loader, edge_index)
         
-        print(f"Test metrics:")
+        print(f"\nTest metrics:")
         print(f"  Loss: {test_metrics['loss']:.4f}")
         print(f"  Accuracy: {test_metrics['accuracy']:.4f}")
         print(f"  Precision: {test_metrics['precision']:.4f}")
