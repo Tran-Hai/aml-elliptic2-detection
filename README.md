@@ -137,6 +137,60 @@ Prepares graph structure for GNN training:
 python -m src.data_processing.phase4_build_graph
 ```
 
+Output: `data/processed/graph/`
+- `edge_index.npy` - Edge connectivity
+- `edge_attr.npy` - Edge features
+- `train_val_test_split.pkl` - Data splits
+
+---
+
+## Usage
+
+### Training
+
+```bash
+# Training with full LAS-Mamba-GNN (recommended)
+python -m src.training.train \
+    --device cuda \
+    --batch-size 256 \
+    --epochs 100
+
+# Training without GNN (faster on CPU, if needed)
+python -m src.training.train \
+    --device cpu \
+    --batch-size 64 \
+    --epochs 100 \
+    --no-gnn
+```
+
+### Command Line Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--device` | Device to use: cuda/cpu/auto | auto |
+| `--batch-size` | Batch size | 256 |
+| `--epochs` | Number of epochs | 100 |
+| `--lr` | Learning rate | 0.0001 |
+| `--num-workers` | DataLoader workers | 4 |
+| `--no-gnn` | Disable GNN layer | False |
+| `--seed` | Random seed | 42 |
+
+### Evaluation
+
+```bash
+python -m src.training.evaluate \
+    --checkpoint checkpoints/best_model.pt \
+    --split test
+```
+
+### Inference
+
+```bash
+python -m src.training.infer \
+    --checkpoint checkpoints/best_model.pt \
+    --node-idx 12345
+```
+
 ---
 
 ## Model Architecture
