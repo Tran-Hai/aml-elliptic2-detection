@@ -127,9 +127,6 @@ def main() -> None:
     sequences_dir = resolve_path(ROOT_DIR, args.sequences_dir)
     index_dir = resolve_path(ROOT_DIR, args.index_dir)
     
-    print("=" * 60)
-    print("LAS-Mamba-GNN Training on Elliptic2 Dataset")
-    print("=" * 60)
     print(f"Loading dataset from:")
     print(f"  Graph: {graph_dir}")
     print(f"  Sequences: {sequences_dir}")
@@ -250,9 +247,7 @@ def main() -> None:
         print_fn=print
     )
     
-    print(f"\n{'='*60}")
     print("Starting training...")
-    print(f"{'='*60}\n", flush=True)
     import sys
     sys.stdout.flush()
     sys.stderr.flush()
@@ -270,11 +265,10 @@ def main() -> None:
         best_model_name="best_model.pt",
         verbose=True
     )
-    
-    print(f"\n{'='*60}")
+
     print("Training completed!")
     print(f"Best validation metric: {results['best_val_metric']:.4f}")
-    print(f"{'='*60}")
+
     
     print(f"\nEvaluating on test set...")
     checkpoint_dir = ROOT_DIR / "checkpoints"
