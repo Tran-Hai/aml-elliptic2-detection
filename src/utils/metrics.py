@@ -34,19 +34,37 @@ def compute_metrics(y_true, y_pred, y_pred_proba=None):
     if y_pred_proba is not None and torch.is_tensor(y_pred_proba):
         y_pred_proba = y_pred_proba.cpu().numpy()
     
+    # Handle edge cases
+    unique_true = np.unique(y_true)
+    unique_pred = np.unique(y_pred)
+    
     metrics = {
-        'accuracy': accuracy_score(y_true, y_pred),
-        'precision': precision_score(y_true, y_pred, zero_division='warn'),
-        'recall': recall_score(y_true, y_pred, zero_division='warn'),
-        'f1': f1_score(y_true, y_pred, zero_division='warn'),
+        'accuracy': accuracy_score(y_true, y_pred) if len(unique_true) > 0 else 0.0,
+        'precision': precision_score(y_true, y_pred, zero_division=0),
+        'recall': recall_score(y_true, y_pred, zero_division=0),
+        'f1': f1_score(y_true, y_pred, zero_division=0),
         'confusion_matrix': confusion_matrix(y_true, y_pred).tolist()
     }
     
+    # Debug: print prediction distribution
+    num_positive_pred = int(np.sum(y_pred == 1))
+    num_positive_true = int(np.sum(y_true == 1))
+    if num_positive_pred == 0:
+        print(f"  DEBUG: No positive predictions! True positives: {num_positive_true}")
+    
     if y_pred_proba is not None:
         try:
-            metrics['auc_roc'] = roc_auc_score(y_true, y_pred_proba)
+            # Check if there are both classes in y_true
+            if len(np.unique(y_true)) > 1:
+                metrics['auc_roc'] = roc_auc_score(y_true, y_pred_proba)
+            else:
+                metrics['auc_roc'] = 0.0
+                print("  DEBUG: Only one class in y_true, AUC-ROC = 0")
+            
+            # AUC-PR is meaningful even with one class
             metrics['auc_pr'] = average_precision_score(y_true, y_pred_proba)
-        except ValueError:
+        except ValueError as e:
+            print(f"  DEBUG: Error computing AUC: {e}")
             metrics['auc_roc'] = 0.0
             metrics['auc_pr'] = 0.0
     
