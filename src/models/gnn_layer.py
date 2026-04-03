@@ -238,6 +238,7 @@ class GNNEncoder(nn.Module):
         self.out_features = out_features
         self.num_layers = num_layers
         self.gnn_type = gnn_type
+        self.dropout = dropout  # Store dropout for use in forward
         
         self.input_proj = nn.Linear(in_features, hidden_dim)
         
@@ -281,6 +282,7 @@ class GNNEncoder(nn.Module):
             Graph-encoded node features [N, out_features]
         """
         N = x.size(0)
+        dropout = self.dropout if hasattr(self, 'dropout') else 0.3
         
         # Project input first
         x = self.input_proj(x)
@@ -297,7 +299,7 @@ class GNNEncoder(nn.Module):
                 # Apply LayerNorm without graph operation
                 x = layer.norm(x)
                 x = F.relu(x)
-                x = F.dropout(x, p=layer.dropout, training=self.training)
+                x = F.dropout(x, p=dropout, training=self.training)
             x = self.output_proj(x)
         else:
             # Normal GNN processing
