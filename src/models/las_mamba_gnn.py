@@ -113,11 +113,17 @@ class LASMambaGNN(nn.Module):
         self._init_weights()
     
     def _init_weights(self):
+        """Careful weight initialization to prevent NaN"""
         for module in self.modules():
             if isinstance(module, nn.Linear):
-                nn.init.xavier_uniform_(module.weight)
+                # Xavier with smaller gain for stability
+                nn.init.xavier_uniform_(module.weight, gain=0.5)
                 if module.bias is not None:
                     nn.init.zeros_(module.bias)
+            elif isinstance(module, nn.LayerNorm):
+                # Standard LayerNorm init
+                nn.init.ones_(module.weight)
+                nn.init.zeros_(module.bias)
     
     def forward(self, node_features, sequences, edge_index):
         """

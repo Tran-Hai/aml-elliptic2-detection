@@ -267,8 +267,11 @@ def create_scheduler(optimizer: torch.optim.Optimizer, config: Dict) -> Optional
 
 
 class OptimizedTrainer:
-    """Optimized trainer with DataLoader support for GPU training."""
-
+    """
+    Optimized trainer for LAS-Mamba-GNN with DataLoader support.
+    Works with GPU, AMP, and parallel data loading.
+    """
+    
     def __init__(
         self,
         model: nn.Module,
@@ -276,7 +279,7 @@ class OptimizedTrainer:
         optimizer: torch.optim.Optimizer,
         device: torch.device,
         scheduler: Optional[Any] = None,
-        grad_clip_norm: float = 1.0,
+        grad_clip_norm: float = 0.5,  # More conservative default
         use_amp: bool = False,
         print_fn=print
     ):

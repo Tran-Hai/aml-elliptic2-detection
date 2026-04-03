@@ -48,7 +48,7 @@ MODEL_CONFIG = {
 
 
 TRAINING_CONFIG = {
-    'learning_rate': 0.0001,
+    'learning_rate': 0.00001,  # 10x smaller: 0.0001 -> 0.00001
     'weight_decay': 0.0001,
     'optimizer': 'adam',
     
@@ -62,10 +62,10 @@ TRAINING_CONFIG = {
     'scheduler_type': 'reduce_on_plateau',
     'scheduler_patience': 5,
     'scheduler_factor': 0.5,
-    'min_lr': 1e-6,
+    'min_lr': 1e-7,
     
     'use_gradient_clipping': True,
-    'max_grad_norm': 1.0,
+    'max_grad_norm': 0.5,  # More conservative: 1.0 -> 0.5
     
     'use_amp': True,
     'num_workers': 4,
@@ -74,7 +74,7 @@ TRAINING_CONFIG = {
 
 LOSS_CONFIG = {
     'loss_type': 'weighted_ce',
-    'class_weights': [1.0, 41.47],
+    'class_weights': [1.0, 100.0],  # Increased: 41.47 -> 100.0
 }
 
 
