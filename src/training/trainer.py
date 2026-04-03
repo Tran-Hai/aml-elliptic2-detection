@@ -347,9 +347,11 @@ class OptimizedTrainer:
         all_preds, all_probs, all_labels = [], [], []
         total_loss = 0.0
         num_batches = 0
+        nan_batches = []
+        debug_info = []
 
         with torch.no_grad():
-            for sequences, labels, batch_global_indices in data_loader:
+            for batch_idx, (sequences, labels, batch_global_indices) in enumerate(data_loader):
                 sequences = sequences.to(self.device)
                 labels = labels.to(self.device)
                 batch_global_indices = batch_global_indices.to(self.device)
@@ -363,17 +365,43 @@ class OptimizedTrainer:
                 node_features = sequences.mean(dim=(1, 2))
                 logits = self.model(node_features, sequences, local_edge_index)
                 
+                # Debug: Log batch info
+                logits_max = logits.abs().max().item()
+                logits_mean = logits.mean().item()
+                has_nan_logits = torch.isnan(logits).any().item()
+                has_inf_logits = torch.isinf(logits).any().item()
+                
                 # Calculate loss safely - skip if NaN
                 loss_val = self.criterion(logits, labels)
+                loss_item = loss_val.item() if not torch.isnan(loss_val) else float('nan')
+                
                 if not torch.isnan(loss_val):
                     total_loss += loss_val.item()
                     num_batches += 1
                 else:
-                    print("  WARNING: NaN loss in evaluation, skipping batch")
+                    nan_batches.append(batch_idx)
+                    debug_info.append({
+                        'batch_idx': batch_idx,
+                        'logits_max': logits_max,
+                        'logits_mean': logits_mean,
+                        'has_nan_logits': has_nan_logits,
+                        'has_inf_logits': has_inf_logits,
+                        'local_edge_shape': local_edge_index.shape,
+                        'sequences_shape': sequences.shape,
+                        'labels_dist': labels.cpu().tolist().count(1)
+                    })
+                    print(f"  WARNING: NaN loss in evaluation at batch {batch_idx}")
+                    print(f"    DEBUG: logits max={logits_max:.4f}, mean={logits_mean:.4f}, nan={has_nan_logits}, inf={has_inf_logits}")
+                    print(f"    DEBUG: local_edge shape={local_edge_index.shape}, positive labels={labels.sum().item()}")
 
                 all_preds.append(logits.argmax(dim=1).cpu())
                 all_probs.append(torch.softmax(logits, dim=1)[:, 1].cpu())
                 all_labels.append(labels.cpu())
+
+        # Print summary of NaN batches
+        if nan_batches:
+            print(f"  DEBUG: Total NaN batches: {len(nan_batches)}/{len(data_loader)}")
+            print(f"  DEBUG: NaN batch indices: {nan_batches[:10]}...")  # Show first 10
 
         metrics = compute_metrics(
             torch.cat(all_labels), torch.cat(all_preds), torch.cat(all_probs)

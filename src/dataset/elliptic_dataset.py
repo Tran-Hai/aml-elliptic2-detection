@@ -248,9 +248,7 @@ def load_elliptic_dataset(graph_dir, sequences_dir, split='train', index_dir=Non
 
 def get_data_info(dataset):
     """Print information about the loaded data."""
-    print("=" * 50)
     print("DATASET INFORMATION")
-    print("=" * 50)
     print(f"Number of nodes: {dataset.num_nodes:,}")
     print(f"Number of edges: {dataset.num_edges:,}")
     print(f"Dataset size: {len(dataset):,}")
@@ -263,4 +261,3 @@ def get_data_info(dataset):
     
     print(f"  Licit: {licit:,} ({licit/len(labels)*100:.2f}%)")
     print(f"  Suspicious: {suspicious:,} ({suspicious/len(labels)*100:.2f}%)")
-    print("=" * 50)

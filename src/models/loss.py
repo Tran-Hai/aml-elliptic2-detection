@@ -12,11 +12,20 @@ import torch.nn.functional as F
 class WeightedCrossEntropyLoss(nn.Module):
     """Weighted Cross Entropy Loss for class imbalance."""
     
-    def __init__(self, weights=None):
+    def __init__(self, weights=None, eps=1e-7):
         super().__init__()
         self.weights = weights
+        self.eps = eps
     
     def forward(self, outputs, targets):
+        # Clamp outputs to avoid extreme values
+        outputs = torch.clamp(outputs, min=-100, max=100)
+        
+        # Check for NaN/Inf inputs
+        if torch.isnan(outputs).any() or torch.isinf(outputs).any():
+            print("  DEBUG Loss: NaN/Inf detected in outputs, returning zero loss")
+            return torch.tensor(0.0, device=outputs.device, requires_grad=True)
+        
         return F.cross_entropy(outputs, targets, weight=self.weights)
 
 
