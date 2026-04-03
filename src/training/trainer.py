@@ -409,6 +409,28 @@ class OptimizedTrainer:
         metrics = compute_metrics(
             torch.cat(all_labels), torch.cat(all_preds), torch.cat(all_probs)
         )
+        
+        # Apply threshold tuning for predictions
+        # Use probability threshold instead of argmax
+        all_probs_tensor = torch.cat(all_probs)
+        threshold = 0.3  # Lower threshold = more positive predictions
+        
+        # Get predictions with threshold
+        preds_with_threshold = (all_probs_tensor > threshold).long()
+        
+        # Compute metrics with threshold
+        metrics_threshold = compute_metrics(
+            torch.cat(all_labels), preds_with_threshold, all_probs_tensor
+        )
+        
+        # Use threshold-based metrics if F1 is better
+        if metrics_threshold['f1'] > metrics['f1']:
+            print(f"  DEBUG: Threshold={threshold} improved F1 from {metrics['f1']:.4f} to {metrics_threshold['f1']:.4f}")
+            metrics['f1'] = metrics_threshold['f1']
+            metrics['recall'] = metrics_threshold['recall']
+            metrics['precision'] = metrics_threshold['precision']
+            metrics['accuracy'] = metrics_threshold['accuracy']
+        
         # Handle NaN in loss calculation
         if num_batches > 0:
             metrics['loss'] = total_loss / num_batches

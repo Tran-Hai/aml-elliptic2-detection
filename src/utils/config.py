@@ -74,7 +74,8 @@ TRAINING_CONFIG = {
 
 LOSS_CONFIG = {
     'loss_type': 'weighted_ce',
-    'class_weights': [1.0, 100.0],  # Increased: 41.47 -> 100.0
+    'class_weights': [1.0, 200.0],  # Increased: 100 -> 200
+    'threshold': 0.3,  # Classification threshold (lower = more positive predictions)
 }
 
 
