@@ -133,14 +133,23 @@ class LASMambaGNN(nn.Module):
         
         if self.use_las:
             las_repr = self.las(sequences)
+            if torch.isnan(las_repr).any():
+                print(f"    DEBUG Model: LAS output has NaN, using zeros")
+                las_repr = torch.zeros_like(las_repr)
             representations.append(las_repr)
         
         if self.use_mamba:
             mamba_repr = self.mamba(sequences)
+            if torch.isnan(mamba_repr).any():
+                print(f"    DEBUG Model: Mamba output has NaN, using zeros")
+                mamba_repr = torch.zeros_like(mamba_repr)
             representations.append(mamba_repr)
         
         if self.use_gnn:
             gnn_repr = self.gnn(node_features, edge_index)
+            if torch.isnan(gnn_repr).any():
+                print(f"    DEBUG Model: GNN output has NaN, using zeros")
+                gnn_repr = torch.zeros_like(gnn_repr)
             representations.append(gnn_repr)
         
         combined = torch.cat(representations, dim=1)
@@ -148,6 +157,11 @@ class LASMambaGNN(nn.Module):
         fused = self.fusion(combined)
         
         logits = self.classifier(fused)
+        
+        # Final safety clamp
+        if torch.isnan(logits).any() or torch.isinf(logits).any():
+            print(f"    DEBUG Model: Final logits have NaN/Inf, clamping")
+            logits = torch.clamp(logits, min=-100, max=100)
         
         return logits
     
