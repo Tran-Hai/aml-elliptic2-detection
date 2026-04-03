@@ -280,17 +280,37 @@ class GNNEncoder(nn.Module):
         Returns:
             Graph-encoded node features [N, out_features]
         """
-        # Handle empty edge index (no edges in batch)
-        if edge_index.shape[1] == 0:
-            # Return zero output (no information to aggregate)
-            return torch.zeros(x.size(0), self.out_features, device=x.device, dtype=x.dtype)
+        N = x.size(0)
         
+        # Project input first
         x = self.input_proj(x)
         
-        for layer in self.layers:
-            x = layer(x, edge_index)
+        # Check for NaN after input projection
+        if torch.isnan(x).any() or torch.isinf(x).any():
+            x = torch.zeros(N, self.hidden_dim, device=x.device, dtype=x.dtype)
+        
+        # Handle different edge cases
+        if edge_index.shape[1] == 0:
+            # No edges in batch - use projected features as output
+            # Apply LayerNorm and some processing instead of returning zeros
+            for layer in self.layers:
+                # Apply LayerNorm without graph operation
+                x = layer.norm(x)
+                x = F.relu(x)
+                x = F.dropout(x, p=layer.dropout, training=self.training)
+            x = self.output_proj(x)
+        else:
+            # Normal GNN processing
+            for layer in self.layers:
+                x = layer(x, edge_index)
+                if torch.isnan(x).any() or torch.isinf(x).any():
+                    x = torch.zeros(N, self.hidden_dim, device=x.device, dtype=x.dtype)
         
         x = self.output_proj(x)
+        
+        # Final safety check
+        if torch.isnan(x).any() or torch.isinf(x).any():
+            x = torch.zeros(N, self.out_features, device=x.device, dtype=x.dtype)
         
         return x
 

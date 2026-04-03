@@ -48,12 +48,12 @@ MODEL_CONFIG = {
 
 
 TRAINING_CONFIG = {
-    'learning_rate': 0.00001,  # 10x smaller: 0.0001 -> 0.00001
+    'learning_rate': 0.00001,
     'weight_decay': 0.0001,
     'optimizer': 'adam',
     
     'num_epochs': 100,
-    'batch_size': 256,
+    'batch_size': 64,  # Reduced from 256 for more edges per batch
     
     'early_stopping_patience': 15,
     'early_stopping_metric': 'f1',
@@ -65,7 +65,7 @@ TRAINING_CONFIG = {
     'min_lr': 1e-7,
     
     'use_gradient_clipping': True,
-    'max_grad_norm': 0.5,  # More conservative: 1.0 -> 0.5
+    'max_grad_norm': 0.5,
     
     'use_amp': True,
     'num_workers': 4,
