@@ -48,7 +48,7 @@ MODEL_CONFIG = {
 
 
 TRAINING_CONFIG = {
-    'learning_rate': 0.00001,
+    'learning_rate': 0.0001,
     'weight_decay': 0.0001,
     'optimizer': 'adam',
     
@@ -73,9 +73,11 @@ TRAINING_CONFIG = {
 
 
 LOSS_CONFIG = {
-    'loss_type': 'weighted_ce',
-    'class_weights': [1.0, 200.0],  # Increased: 100 -> 200
+    'loss_type': 'focal',
+    'class_weights': [1.0, 300.0],  # Increased: 100 -> 200 -> 300
     'threshold': 0.3,  # Classification threshold (lower = more positive predictions)
+    'focal_gamma': 2.0,  # Focal loss gamma parameter
+    'focal_alpha': 0.25,  # Focal loss alpha for positive class
 }
 
 
