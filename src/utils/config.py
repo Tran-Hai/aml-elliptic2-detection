@@ -55,7 +55,7 @@ TRAINING_CONFIG = {
     'num_epochs': 100,
     'batch_size': 64,  # Reduced from 256 for more edges per batch
     
-    'early_stopping_patience': 15,
+    'early_stopping_patience': 100,  # Increased from 15 to 100 (essentially disabled)
     'early_stopping_metric': 'f1',
     
     'use_scheduler': True,
@@ -74,10 +74,10 @@ TRAINING_CONFIG = {
 
 LOSS_CONFIG = {
     'loss_type': 'focal',
-    'class_weights': [1.0, 300.0],  # Increased: 100 -> 200 -> 300
-    'threshold': 0.3,  # Classification threshold (lower = more positive predictions)
-    'focal_gamma': 2.0,  # Focal loss gamma parameter
-    'focal_alpha': 0.25,  # Focal loss alpha for positive class
+    'class_weights': [1.0, 500.0],  # Increased: 100 -> 200 -> 300 -> 500
+    'threshold': 0.3,
+    'focal_gamma': 1.5,  # Decreased from 2.0 to 1.5
+    'focal_alpha': 0.5,  # Increased from 0.25 to 0.5
 }
 
 
