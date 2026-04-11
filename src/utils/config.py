@@ -53,7 +53,7 @@ TRAINING_CONFIG = {
     'optimizer': 'adam',
     
     'num_epochs': 100,
-    'batch_size': 64,  # Reduced from 256 for more edges per batch
+    'batch_size': 128,  # Increased from 64 to 128
     
     'early_stopping_patience': 100,  # Increased from 15 to 100 (essentially disabled)
     'early_stopping_metric': 'f1',
