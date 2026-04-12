@@ -74,10 +74,10 @@ TRAINING_CONFIG = {
 
 LOSS_CONFIG = {
     'loss_type': 'focal',
-    'class_weights': [1.0, 500.0],  # Increased: 100 -> 200 -> 300 -> 500
-    'threshold': 0.3,
-    'focal_gamma': 1.5,  # Decreased from 2.0 to 1.5
-    'focal_alpha': 0.5,  # Increased from 0.25 to 0.5
+    'class_weights': [1.0, 2000.0],  # Increased from 500 to 2000
+    'threshold': 0.2,  # Decreased from 0.3 to 0.2 for more positive predictions
+    'focal_gamma': 1.5,
+    'focal_alpha': 0.5,
 }
 
 
