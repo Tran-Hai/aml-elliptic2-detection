@@ -41,19 +41,19 @@ MODEL_CONFIG = {
     
     'num_classes': 2,
     
-    'use_las': True,
-    'use_mamba': True,
-    'use_gnn': True,
+    'use_las': False,  # Disable LAS - Mamba already handles sequences
+    'use_mamba': True,  # Keep Mamba as core
+'use_gnn': False,  # Disable GNN to simplify
 }
 
 
 TRAINING_CONFIG = {
-    'learning_rate': 0.0001,
+    'learning_rate': 0.0005,  # Increased from 1e-4 to 5e-4
     'weight_decay': 0.0001,
     'optimizer': 'adam',
     
     'num_epochs': 100,
-    'batch_size': 256,  # Increased from 64 to 128
+    'batch_size': 128,
     
     'early_stopping_patience': 100,  # Increased from 15 to 100 (essentially disabled)
     'early_stopping_metric': 'f1',
@@ -74,10 +74,10 @@ TRAINING_CONFIG = {
 
 LOSS_CONFIG = {
     'loss_type': 'focal',
-    'class_weights': [1.0, 2000.0],  # Increased from 500 to 2000
-    'threshold': 0.2,  # Decreased from 0.3 to 0.2 for more positive predictions
-    'focal_gamma': 1.5,
-    'focal_alpha': 0.5,
+    'class_weights': [1.0, 5000.0],  # Increased to 5000 for strong imbalance
+    'threshold': 0.15,  # Lower threshold for more positive predictions
+    'focal_gamma': 1.0,  # Decreased from 1.5 to 1.0
+    'focal_alpha': 0.75,  # Increased from 0.5 to 0.75
 }
 
 
