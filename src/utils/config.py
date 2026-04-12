@@ -18,55 +18,30 @@ RESULTS_DIR = BASE_DIR / "results"
 
 
 MODEL_CONFIG = {
-    'las_hidden_dim': 64,
-    'las_output_dim': 64,
-    
+    'feature_dim': 96,
     'mamba_hidden_dim': 64,
-    'mamba_output_dim': 64,
     'mamba_num_layers': 2,
-    
-    'gnn_hidden_dim': 128,
-    'gnn_num_layers': 2,
-    'gnn_dropout': 0.3,
-    'gnn_type': 'gat',
-    
-    'num_heads': 4,
     'classifier_hidden_dim': 128,
     'dropout': 0.3,
-    
-    'num_edge_features': 1,
-    'sequence_length': 50,
-    'num_flows': 2,
-    'feature_dim': 96,
-    
     'num_classes': 2,
-    
-    'use_las': False,  # Disable LAS - Mamba already handles sequences
-    'use_mamba': True,  # Keep Mamba as core
-'use_gnn': False,  # Disable GNN to simplify
 }
 
 
 TRAINING_CONFIG = {
-    'learning_rate': 0.0005,  # Increased from 1e-4 to 5e-4
+    'learning_rate': 0.0005,
     'weight_decay': 0.0001,
     'optimizer': 'adam',
-    
     'num_epochs': 100,
     'batch_size': 128,
-    
-    'early_stopping_patience': 100,  # Increased from 15 to 100 (essentially disabled)
+    'early_stopping_patience': 100,
     'early_stopping_metric': 'f1',
-    
     'use_scheduler': True,
     'scheduler_type': 'reduce_on_plateau',
     'scheduler_patience': 5,
     'scheduler_factor': 0.5,
     'min_lr': 1e-7,
-    
     'use_gradient_clipping': True,
     'max_grad_norm': 0.5,
-    
     'use_amp': True,
     'num_workers': 4,
 }
@@ -74,10 +49,10 @@ TRAINING_CONFIG = {
 
 LOSS_CONFIG = {
     'loss_type': 'focal',
-    'class_weights': [1.0, 5000.0],  # Increased to 5000 for strong imbalance
-    'threshold': 0.15,  # Lower threshold for more positive predictions
-    'focal_gamma': 1.0,  # Decreased from 1.5 to 1.0
-    'focal_alpha': 0.75,  # Increased from 0.5 to 0.75
+    'class_weights': [1.0, 5000.0],
+    'threshold': 0.15,
+    'focal_gamma': 1.0,
+    'focal_alpha': 0.75,
 }
 
 
@@ -96,7 +71,6 @@ DATASET_CONFIG = {
     'num_classes': 2,
     'sequence_length': 50,
     'feature_dim': 96,
-    'edge_feature_dim': 1,
 }
 
 
@@ -123,9 +97,9 @@ REPRODUCIBILITY_CONFIG = {
 
 
 def get_device():
+    import torch
     if DEVICE_CONFIG['device'] != 'auto':
         return DEVICE_CONFIG['device']
-    
     if torch.cuda.is_available():
         return 'cuda'
     elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
@@ -135,17 +109,12 @@ def get_device():
 
 
 def get_class_weights():
+    import torch
     weights = LOSS_CONFIG['class_weights']
-    if isinstance(weights, dict):
-        return torch.tensor([weights['licit'], weights['suspicious']], dtype=torch.float32)
-    else:
-        return torch.tensor(weights, dtype=torch.float32)
+    return torch.tensor(weights, dtype=torch.float32)
 
 
 def create_directories():
     dirs = [CHECKPOINTS_DIR, LOGS_DIR, RESULTS_DIR]
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)
-
-
-import torch
