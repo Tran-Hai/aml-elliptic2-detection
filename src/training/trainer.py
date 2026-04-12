@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 
-# ─── FIX 1: Thay vòng for Python bằng tensor mask trên GPU ──────────────────
+
 def get_local_edge_index(full_edge_index, batch_global_indices, device):
     """
     Tạo local edge index cho một batch nodes.
