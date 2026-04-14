@@ -102,9 +102,7 @@ def main():
     INDEX_DIR = BASE_DIR / "data" / "processed" / "index"
     CHUNK_SIZE = 50000
     
-    print(f"\n{'='*60}")
     print(f"EXTRACT FEATURES - Phase 2")
-    print('='*60)
     
     start_time = time.time()
     
@@ -161,9 +159,7 @@ def main():
         # Final stats
         elapsed = time.time() - start_time
         
-        print(f"\n{'='*60}")
         print(f"EXTRACTION COMPLETE - Phase 2")
-        print('='*60)
         print(f"Total chunks processed: {chunk_num:,}")
         print(f"Total edges extracted: {total_edges_extracted:,}")
         
@@ -174,9 +170,7 @@ def main():
         print(f"Out-flow files created: {len(out_files):,}")
         
         print(f"Total time: {elapsed:.2f} seconds ({elapsed/60:.1f} minutes)")
-        print(f"\n{'='*60}")
         print(f"COMPLETED SUCCESSFULLY - Phase 2")
-        print('='*60)
         print(f"Feature files saved to: {FEATURES_DIR}")
         
         return 0

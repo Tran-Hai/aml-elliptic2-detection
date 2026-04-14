@@ -149,9 +149,8 @@ def main():
     TEST_RATIO = 0.15
     RANDOM_SEED = 42
     
-    print(f"\n{'='*60}")
+
     print(f"BUILD GRAPH - Phase 4")
-    print('='*60)
     print(f"Train ratio: {TRAIN_RATIO}")
     print(f"Val ratio: {VAL_RATIO}")
     print(f"Test ratio: {TEST_RATIO}")
@@ -239,9 +238,7 @@ def main():
         elapsed = time.time() - start_time
         
         if all_valid:
-            print(f"\n{'='*60}")
             print(f"COMPLETED SUCCESSFULLY - Phase 4")
-            print('='*60)
             print(f"Graph files saved to: {GRAPH_DIR}")
             print(f"Total time: {elapsed:.2f} seconds")
             return 0

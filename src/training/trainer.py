@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 
-
+# ─── FIX 1: Thay vòng for Python bằng tensor mask trên GPU ──────────────────
 def get_local_edge_index(full_edge_index, batch_global_indices, device):
     """
     Tạo local edge index cho một batch nodes.
@@ -68,7 +68,7 @@ class Trainer:
         self.use_amp = use_amp
         self.print = print_fn
         self.scaler = (
-            torch.cuda.amp.GradScaler()
+            torch.amp.GradScaler('cuda')
             if use_amp and device.type == 'cuda' else None
         )
 
@@ -100,10 +100,10 @@ class Trainer:
             labels = labels.to(self.device)
             node_features = sequences.mean(dim=(1, 2))
 
-            self.optimizer.zero_grad()
+            self.optimizer.zero_grad(set_to_none=True)
 
             if self.use_amp and self.scaler is not None:
-                with torch.cuda.amp.autocast():
+                with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
                     logits = self.model(node_features, sequences, edge_index)
                     loss = self.criterion(logits, labels)
                 self.scaler.scale(loss).backward()
@@ -292,7 +292,7 @@ class OptimizedTrainer:
         self.use_amp = use_amp
         self.print = print_fn
         self.scaler = (
-            torch.cuda.amp.GradScaler()
+            torch.amp.GradScaler('cuda')
             if use_amp and device.type == 'cuda' else None
         )
 
@@ -302,9 +302,9 @@ class OptimizedTrainer:
         num_batches = 0
 
         for batch_idx, (sequences, labels, batch_global_indices) in enumerate(train_loader):
-            sequences = sequences.to(self.device)
-            labels = labels.to(self.device)
-            batch_global_indices = batch_global_indices.to(self.device)
+            sequences = sequences.to(self.device, non_blocking=True)
+            labels = labels.to(self.device, non_blocking=True)
+            batch_global_indices = batch_global_indices.to(self.device, non_blocking=True)
 
             local_edge_index = (
                 get_local_edge_index(edge_index, batch_global_indices, self.device)
@@ -313,10 +313,10 @@ class OptimizedTrainer:
             )
 
             node_features = sequences.mean(dim=(1, 2))
-            self.optimizer.zero_grad()
+            self.optimizer.zero_grad(set_to_none=True)
 
             if self.use_amp and self.scaler is not None:
-                with torch.cuda.amp.autocast():
+                with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
                     logits = self.model(node_features, sequences, local_edge_index)
                     loss = self.criterion(logits, labels)
                 if torch.isnan(loss):
@@ -350,14 +350,12 @@ class OptimizedTrainer:
         all_preds, all_probs, all_labels = [], [], []
         total_loss = 0.0
         num_batches = 0
-        nan_batches = []
-        debug_info = []
 
         with torch.no_grad():
             for batch_idx, (sequences, labels, batch_global_indices) in enumerate(data_loader):
-                sequences = sequences.to(self.device)
-                labels = labels.to(self.device)
-                batch_global_indices = batch_global_indices.to(self.device)
+                sequences = sequences.to(self.device, non_blocking=True)
+                labels = labels.to(self.device, non_blocking=True)
+                batch_global_indices = batch_global_indices.to(self.device, non_blocking=True)
 
                 local_edge_index = (
                     get_local_edge_index(edge_index, batch_global_indices, self.device)
@@ -368,43 +366,15 @@ class OptimizedTrainer:
                 node_features = sequences.mean(dim=(1, 2))
                 logits = self.model(node_features, sequences, local_edge_index)
                 
-                # Debug: Log batch info
-                logits_max = logits.abs().max().item()
-                logits_mean = logits.mean().item()
-                has_nan_logits = torch.isnan(logits).any().item()
-                has_inf_logits = torch.isinf(logits).any().item()
-                
-                # Calculate loss safely - skip if NaN
                 loss_val = self.criterion(logits, labels)
-                loss_item = loss_val.item() if not torch.isnan(loss_val) else float('nan')
                 
                 if not torch.isnan(loss_val):
                     total_loss += loss_val.item()
                     num_batches += 1
-                else:
-                    nan_batches.append(batch_idx)
-                    debug_info.append({
-                        'batch_idx': batch_idx,
-                        'logits_max': logits_max,
-                        'logits_mean': logits_mean,
-                        'has_nan_logits': has_nan_logits,
-                        'has_inf_logits': has_inf_logits,
-                        'local_edge_shape': local_edge_index.shape,
-                        'sequences_shape': sequences.shape,
-                        'labels_dist': labels.cpu().tolist().count(1)
-                    })
-                    print(f"  WARNING: NaN loss in evaluation at batch {batch_idx}")
-                    print(f"    DEBUG: logits max={logits_max:.4f}, mean={logits_mean:.4f}, nan={has_nan_logits}, inf={has_inf_logits}")
-                    print(f"    DEBUG: local_edge shape={local_edge_index.shape}, positive labels={labels.sum().item()}")
 
                 all_preds.append(logits.argmax(dim=1).cpu())
                 all_probs.append(torch.softmax(logits, dim=1)[:, 1].cpu())
                 all_labels.append(labels.cpu())
-
-        # Print summary of NaN batches
-        if nan_batches:
-            print(f"  DEBUG: Total NaN batches: {len(nan_batches)}/{len(data_loader)}")
-            print(f"  DEBUG: NaN batch indices: {nan_batches[:10]}...")  # Show first 10
 
         metrics = compute_metrics(
             torch.cat(all_labels), torch.cat(all_preds), torch.cat(all_probs)
@@ -431,12 +401,10 @@ class OptimizedTrainer:
             metrics['precision'] = metrics_threshold['precision']
             metrics['accuracy'] = metrics_threshold['accuracy']
         
-        # Handle NaN in loss calculation
         if num_batches > 0:
             metrics['loss'] = total_loss / num_batches
         else:
             metrics['loss'] = 0.0
-            print("  WARNING: All batches had NaN loss, setting val_loss to 0.0")
         
         return metrics
 
@@ -496,7 +464,8 @@ class OptimizedTrainer:
 
                 if self.scheduler is not None:
                     if isinstance(self.scheduler, ReduceLROnPlateau):
-                        self.scheduler.step(val_metrics['loss'])
+                        scheduler_metric = current if metric_key != 'loss' else val_metrics['loss']
+                        self.scheduler.step(scheduler_metric)
                     elif isinstance(self.scheduler, CosineAnnealingLR):
                         self.scheduler.step()
 

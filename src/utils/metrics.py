@@ -46,12 +46,6 @@ def compute_metrics(y_true, y_pred, y_pred_proba=None):
         'confusion_matrix': confusion_matrix(y_true, y_pred).tolist()
     }
     
-    # Debug: print prediction distribution
-    num_positive_pred = int(np.sum(y_pred == 1))
-    num_positive_true = int(np.sum(y_true == 1))
-    if num_positive_pred == 0:
-        print(f"  DEBUG: No positive predictions! True positives: {num_positive_true}")
-    
     if y_pred_proba is not None:
         try:
             # Check if there are both classes in y_true
@@ -59,12 +53,10 @@ def compute_metrics(y_true, y_pred, y_pred_proba=None):
                 metrics['auc_roc'] = roc_auc_score(y_true, y_pred_proba)
             else:
                 metrics['auc_roc'] = 0.0
-                print("  DEBUG: Only one class in y_true, AUC-ROC = 0")
             
             # AUC-PR is meaningful even with one class
             metrics['auc_pr'] = average_precision_score(y_true, y_pred_proba)
         except ValueError as e:
-            print(f"  DEBUG: Error computing AUC: {e}")
             metrics['auc_roc'] = 0.0
             metrics['auc_pr'] = 0.0
     

@@ -41,6 +41,20 @@ class FastEllipticDataset(Dataset):
         
         self._file_cache = {}
         self._cache_lock = threading.Lock()
+
+    def __getstate__(self):
+        """
+        Make dataset pickle-safe for Windows multiprocessing DataLoader.
+        Locks are not picklable, so remove and recreate in worker process.
+        """
+        state = self.__dict__.copy()
+        state['_cache_lock'] = None
+        return state
+
+    def __setstate__(self, state):
+        """Restore dataset state after unpickling in worker process."""
+        self.__dict__.update(state)
+        self._cache_lock = threading.Lock()
     
     def _load_metadata(self):
         """Load graph structure efficiently."""
