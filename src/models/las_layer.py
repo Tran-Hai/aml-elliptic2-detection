@@ -160,7 +160,7 @@ class LASWithStatistics(nn.Module):
         
         x: [N, 2, K, F]
         
-        Returns: [N, 8] - 8 statistics per node
+        Returns: [N, 8] - 8 statistics per node (averaged across features)
         """
         in_flow = x[:, 0, :, :]
         out_flow = x[:, 1, :, :]
@@ -168,10 +168,14 @@ class LASWithStatistics(nn.Module):
         stats = []
         
         for flow in [in_flow, out_flow]:
-            mean_val = flow.mean(dim=1)
-            std_val = flow.std(dim=1)
-            max_val = flow.max(dim=1)[0]
-            min_val = flow.min(dim=1)[0]
+            # Average across features [N, K, F] -> [N, K] 
+            # then take stats across time [N, K] -> [N]
+            flow_mean_feat = flow.mean(dim=-1) 
+            
+            mean_val = flow_mean_feat.mean(dim=1)
+            std_val = flow_mean_feat.std(dim=1)
+            max_val = flow_mean_feat.max(dim=1)[0]
+            min_val = flow_mean_feat.min(dim=1)[0]
             
             stats.extend([mean_val, std_val, max_val, min_val])
         

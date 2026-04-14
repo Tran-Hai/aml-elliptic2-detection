@@ -98,7 +98,11 @@ class Trainer:
             sequences, labels = dataset.load_batch(batch_indices)
             sequences = sequences.to(self.device)
             labels = labels.to(self.device)
-            node_features = sequences.mean(dim=(1, 2))
+            # Concatenate in-flow and out-flow means to preserve flow direction info
+            # sequences shape: [Batch, 2, 50, 96]
+            node_features_in = sequences[:, 0].mean(dim=1)   # [Batch, 96]
+            node_features_out = sequences[:, 1].mean(dim=1)  # [Batch, 96]
+            node_features = torch.cat([node_features_in, node_features_out], dim=1) # [Batch, 192]
 
             self.optimizer.zero_grad(set_to_none=True)
 
@@ -150,7 +154,11 @@ class Trainer:
                 sequences, labels = dataset.load_batch(batch_indices)
                 sequences = sequences.to(self.device)
                 labels = labels.to(self.device)
-                node_features = sequences.mean(dim=(1, 2))
+                # Concatenate in-flow and out-flow means to preserve flow direction info
+            # sequences shape: [Batch, 2, 50, 96]
+                node_features_in = sequences[:, 0].mean(dim=1)   # [Batch, 96]
+                node_features_out = sequences[:, 1].mean(dim=1)  # [Batch, 96]
+                node_features = torch.cat([node_features_in, node_features_out], dim=1) # [Batch, 192]
 
                 logits = self.model(node_features, sequences, edge_index)
                 total_loss += self.criterion(logits, labels).item()
@@ -312,7 +320,11 @@ class OptimizedTrainer:
                 else torch.empty((2, 0), dtype=torch.long, device=self.device)
             )
 
-            node_features = sequences.mean(dim=(1, 2))
+            # Concatenate in-flow and out-flow means to preserve flow direction info
+            # sequences shape: [Batch, 2, 50, 96]
+            node_features_in = sequences[:, 0].mean(dim=1)   # [Batch, 96]
+            node_features_out = sequences[:, 1].mean(dim=1)  # [Batch, 96]
+            node_features = torch.cat([node_features_in, node_features_out], dim=1) # [Batch, 192]
             self.optimizer.zero_grad(set_to_none=True)
 
             if self.use_amp and self.scaler is not None:
@@ -363,7 +375,11 @@ class OptimizedTrainer:
                     else torch.empty((2, 0), dtype=torch.long, device=self.device)
                 )
 
-                node_features = sequences.mean(dim=(1, 2))
+                # Concatenate in-flow and out-flow means to preserve flow direction info
+            # sequences shape: [Batch, 2, 50, 96]
+                node_features_in = sequences[:, 0].mean(dim=1)   # [Batch, 96]
+                node_features_out = sequences[:, 1].mean(dim=1)  # [Batch, 96]
+                node_features = torch.cat([node_features_in, node_features_out], dim=1) # [Batch, 192]
                 logits = self.model(node_features, sequences, local_edge_index)
                 
                 loss_val = self.criterion(logits, labels)

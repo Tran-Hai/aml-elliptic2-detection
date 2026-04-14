@@ -48,7 +48,8 @@ class LASMambaGNN(nn.Module):
         use_las=True,
         use_mamba=True,
         use_gnn=True,
-        use_statistics=False
+        use_statistics=False,
+        mamba_pooling='last'
     ):
         super().__init__()
         
@@ -80,7 +81,7 @@ class LASMambaGNN(nn.Module):
                 hidden_dim=mamba_hidden_dim,
                 num_layers=mamba_num_layers,
                 dropout=dropout,
-                pooling='last'
+                pooling=mamba_pooling
             )
             feature_dims.append(mamba_hidden_dim)
         
@@ -302,5 +303,6 @@ def create_las_mamba_gnn(config):
         use_las=config.get('use_las', True),
         use_mamba=config.get('use_mamba', True),
         use_gnn=config.get('use_gnn', True),
-        use_statistics=config.get('use_statistics', False)
+        use_statistics=config.get('use_statistics', False),
+        mamba_pooling=config.get('mamba_pooling', 'last')
     )
