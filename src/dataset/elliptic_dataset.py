@@ -177,21 +177,27 @@ class FastEllipticDataset(Dataset):
     
     def get_batch(self, indices: List[int]) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Get a batch of sequences (for custom batching).
-        
+        Get a batch of sequences by global node indices (used by OptimizedTrainer
+        after k_hop_subgraph neighbor expansion).
+
+        Args:
+            indices: list of global node indices
+
         Returns:
             features: [batch_size, 2, 50, 96]
             labels: [batch_size]
         """
         batch_features = []
         batch_labels = []
-        
-        for idx in indices:
-            features, label = self[idx]
+
+        for global_idx in indices:
+            features = self._load_sequence(global_idx)
+            label = self.labels[global_idx].item()
+            features = torch.tensor(features, dtype=torch.float32)
             batch_features.append(features)
             batch_labels.append(label)
-        
-        return torch.stack(batch_features), torch.stack(batch_labels)
+
+        return torch.stack(batch_features), torch.tensor(batch_labels, dtype=torch.long)
 
 
 class EllipticDataLoader:

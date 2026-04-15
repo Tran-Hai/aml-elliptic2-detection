@@ -18,18 +18,50 @@ from .mamba_layer import MambaDualEncoder, create_mamba_layer
 from .gnn_layer import GNNEncoder, create_gnn_encoder
 
 
+class AttentionFusion(nn.Module):
+    """
+    Attention-based fusion for multiple representations.
+    Learns to weight the importance of each branch (LAS, Mamba, GNN).
+    """
+    def __init__(self, input_dims, output_dim, dropout=0.3):
+        super().__init__()
+        self.num_branches = len(input_dims)
+        self.output_dim = output_dim
+        
+        # Project each branch to a common dimension if they differ
+        self.projections = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(dim, output_dim),
+                nn.LayerNorm(output_dim),
+                nn.ReLU()
+            ) for dim in input_dims
+        ])
+        
+        # Attention mechanism
+        self.query = nn.Parameter(torch.randn(1, output_dim))
+        self.attn_linear = nn.Linear(output_dim, 1)
+        self.dropout = nn.Dropout(dropout)
+        
+    def forward(self, representations):
+        """
+        Args: representations (list of Tensors): [N, dim_i]
+        """
+        projected = [proj(repr).unsqueeze(1) for proj, repr in zip(self.projections, representations)]
+        combined = torch.cat(projected, dim=1) # [N, num_branches, output_dim]
+        
+        # Simple dot-product attention
+        scores = self.attn_linear(combined).squeeze(-1) # [N, num_branches]
+        weights = F.softmax(scores, dim=1).unsqueeze(-1) # [N, num_branches, 1]
+        
+        # Weighted sum
+        fused = (combined * weights).sum(dim=1) # [N, output_dim]
+        return fused, weights
+
+
 class LASMambaGNN(nn.Module):
     """
     LAS-Mamba-GNN: Complete model for AML detection
-
-    
-    Input:
-        - node_features: Node feature vectors [N, feature_dim]
-        - sequences: Transaction sequences [N, 2, K, F] (in/out flows)
-        - edge_index: Graph connectivity [2, E]
-    
-    Output:
-        - logits: [N, num_classes]
+    Enhanced with Attention Fusion and Rich Node Features.
     """
     
     def __init__(
@@ -53,122 +85,71 @@ class LASMambaGNN(nn.Module):
     ):
         super().__init__()
         
-        self.input_adapter = nn.Linear(192, feature_dim)
+        # input_adapter now handles [mean, max, last] for in/out flows (6 * 96 = 576)
+        self.input_adapter = nn.Linear(576, feature_dim)
         self.use_las = use_las
         self.use_mamba = use_mamba
         self.use_gnn = use_gnn
         
-        feature_dims = []
-        
+        branch_dims = []
         if use_las:
-            self.las = LASLayer(
-                in_features=feature_dim,  # Because we have in/out sequences
-                hidden_dim=las_hidden_dim,
-                dropout=dropout
-            )
+            self.las = LASLayer(in_features=feature_dim, hidden_dim=las_hidden_dim, dropout=dropout)
             if use_statistics:
-                self.las = LASWithStatistics(
-                    in_features=feature_dim,
-                    hidden_dim=las_hidden_dim,
-                    dropout=dropout,
-                    use_statistics=True
-                )
-            feature_dims.append(las_hidden_dim)
+                self.las = LASWithStatistics(in_features=feature_dim, hidden_dim=las_hidden_dim, dropout=dropout, use_statistics=True)
+            branch_dims.append(las_hidden_dim)
         
         if use_mamba:
-            self.mamba = MambaDualEncoder(
-                in_features=feature_dim,
-                hidden_dim=mamba_hidden_dim,
-                num_layers=mamba_num_layers,
-                dropout=dropout,
-                pooling=mamba_pooling
-            )
-            feature_dims.append(mamba_hidden_dim)
+            self.mamba = MambaDualEncoder(in_features=feature_dim, hidden_dim=mamba_hidden_dim, num_layers=mamba_num_layers, dropout=dropout, pooling=mamba_pooling)
+            branch_dims.append(mamba_hidden_dim)
         
         if use_gnn:
-            self.gnn = GNNEncoder(
-                in_features=feature_dim,
-                hidden_dim=gnn_hidden_dim,
-                out_features=gnn_hidden_dim,
-                num_layers=gnn_num_layers,
-                num_heads=num_heads,
-                dropout=dropout,
-                gnn_type=gnn_type
-            )
-            feature_dims.append(gnn_hidden_dim)
+            self.gnn = GNNEncoder(in_features=feature_dim, hidden_dim=gnn_hidden_dim, out_features=gnn_hidden_dim, num_layers=gnn_num_layers, num_heads=num_heads, dropout=dropout, gnn_type=gnn_type)
+            branch_dims.append(gnn_hidden_dim)
         
-        combined_dim = sum(feature_dims)
+        # Attention Fusion instead of simple concat
+        self.attention_fusion = AttentionFusion(branch_dims, classifier_hidden_dim, dropout)
         
-        self.fusion = nn.Sequential(
-            nn.Linear(combined_dim, classifier_hidden_dim),
-            nn.LayerNorm(classifier_hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout),
+        self.classifier = nn.Sequential(
             nn.Linear(classifier_hidden_dim, classifier_hidden_dim // 2),
             nn.LayerNorm(classifier_hidden_dim // 2),
             nn.ReLU(),
             nn.Dropout(dropout),
+            nn.Linear(classifier_hidden_dim // 2, num_classes)
         )
-        
-        self.classifier = nn.Linear(classifier_hidden_dim // 2, num_classes)
         
         self._init_weights()
     
     def _init_weights(self):
-        """Careful weight initialization to prevent NaN"""
         for module in self.modules():
             if isinstance(module, nn.Linear):
-                # Xavier with smaller gain for stability
                 nn.init.xavier_uniform_(module.weight, gain=0.5)
                 if module.bias is not None:
                     nn.init.zeros_(module.bias)
-            elif isinstance(module, nn.LayerNorm):
-                # Standard LayerNorm init
-                nn.init.ones_(module.weight)
-                nn.init.zeros_(module.bias)
     
     def forward(self, node_features, sequences, edge_index):
-        """
-        Args:
-            node_features: [N, feature_dim]
-            sequences: [N, 2, K, F]
-            edge_index: [2, E]
-        
-        Returns:
-            logits: [N, num_classes]
-        """
         representations = []
         
         if self.use_las:
             las_repr = self.las(sequences)
-            if torch.isnan(las_repr).any():
-                las_repr = torch.zeros_like(las_repr)
             representations.append(las_repr)
         
         if self.use_mamba:
             mamba_repr = self.mamba(sequences)
-            if torch.isnan(mamba_repr).any():
-                mamba_repr = torch.zeros_like(mamba_repr)
             representations.append(mamba_repr)
         
         if self.use_gnn:
-            if node_features.shape[1] != self.gnn.in_features:
-                node_features = self.input_adapter(node_features)
-
+            # node_features already contains [mean, max, last] info
+            node_features = self.input_adapter(node_features)
             gnn_repr = self.gnn(node_features, edge_index)
-            if torch.isnan(gnn_repr).any():
-                gnn_repr = torch.zeros_like(gnn_repr)
             representations.append(gnn_repr)
         
-        combined = torch.cat(representations, dim=1)
-        
-        fused = self.fusion(combined)
+        # Intelligent Fusion
+        fused, attn_weights = self.attention_fusion(representations)
         
         logits = self.classifier(fused)
         
-        # Final safety clamp
+        # Safety clamp
         if torch.isnan(logits).any() or torch.isinf(logits).any():
-            print(f"    DEBUG Model: Final logits have NaN/Inf, clamping")
             logits = torch.clamp(logits, min=-100, max=100)
         
         return logits
