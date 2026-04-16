@@ -220,7 +220,7 @@ def main() -> None:
     }
     
     print(f"\nCreating model...")
-    model = create_las_mamba_gnn(model_config).to(device)
+    model = create_mamba_gnn(model_config).to(device)
     if device.type == "cuda" and not args.no_compile and hasattr(torch, "compile"):
         model = torch.compile(model, mode="reduce-overhead")
     
