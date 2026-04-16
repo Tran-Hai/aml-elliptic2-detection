@@ -18,7 +18,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from src.dataset.elliptic_dataset import load_elliptic_dataset, FastEllipticDataset
-from src.models.las_mamba_gnn import create_las_mamba_gnn
+from src.models.mamba_gnn import create_mamba_gnn
 from src.models.loss import get_loss_function
 from src.training.trainer import Trainer, create_optimizer, create_scheduler, OptimizedTrainer, get_local_edge_index
 from src.utils.config import (

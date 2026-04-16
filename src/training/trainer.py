@@ -1,6 +1,6 @@
 """
-Trainer class for LAS-Mamba-GNN model
-Optimized with Neighbor Expansion for GNN performance.
+Trainer class for Mamba-GNN model
+Optimized with Neighbor Expansion for Graph performance.
 """
 
 import torch
@@ -9,7 +9,6 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR
 from typing import Dict, Optional, Any, List, Tuple
 import numpy as np
-import sys
 from pathlib import Path
 from torch_geometric.utils import k_hop_subgraph
 
@@ -21,7 +20,6 @@ def get_neighbor_subgraph(full_edge_index, batch_indices, num_hops=1):
     if not isinstance(batch_indices, torch.Tensor):
         batch_indices = torch.tensor(batch_indices, dtype=torch.long)
     
-    # relabel_nodes=True mapping original IDs to 0..N-1
     subset, local_edge_index, mapping, edge_mask = k_hop_subgraph(
         batch_indices, 
         num_hops, 
@@ -34,7 +32,7 @@ def get_neighbor_subgraph(full_edge_index, batch_indices, num_hops=1):
 
 class OptimizedTrainer:
     """
-    Optimized trainer for LAS-Mamba-GNN with Neighbor Expansion.
+    Optimized trainer for Mamba-GNN with Neighbor Expansion.
     """
     
     def __init__(
@@ -92,7 +90,7 @@ class OptimizedTrainer:
                 all_sequences, _ = dataset.get_batch(subset.tolist())
                 all_sequences = all_sequences.to(self.device)
                 
-                # 3. Features for all nodes
+                # 3. Features for all nodes in subgraph
                 all_node_features = self._prepare_node_features(all_sequences)
                 
                 self.optimizer.zero_grad(set_to_none=True)
@@ -117,7 +115,6 @@ class OptimizedTrainer:
                         torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip_norm)
                         self.optimizer.step()
             else:
-                # Basic non-expanded or non-GNN logic
                 sequences = sequences.to(self.device)
                 node_features = self._prepare_node_features(sequences)
                 self.optimizer.zero_grad()
@@ -215,13 +212,16 @@ class OptimizedTrainer:
         history = {'train_loss': [], 'val_loss': [], 'val_f1': []}
 
         for epoch in range(1, num_epochs + 1):
-            train_metrics = self.train_epoch(train_loader, dataset, edge_index, num_hops)
+            train_results = self.train_epoch(train_loader, dataset, edge_index, num_hops)
+            history['train_loss'].append(train_results['loss'])
             
             if epoch % val_interval == 0:
                 val_metrics = self.evaluate(val_loader, dataset, edge_index, num_hops)
+                history['val_loss'].append(val_metrics['loss'])
+                history['val_f1'].append(val_metrics['f1'])
                 
                 if verbose:
-                    self.print(f"Epoch {epoch:03d} | Train Loss: {train_metrics['loss']:.4f} | Val F1: {val_metrics['f1']:.4f} | Thr: {val_metrics['threshold']:.2f}")
+                    self.print(f"Epoch {epoch:03d} | Train Loss: {train_results['loss']:.4f} | Val F1: {val_metrics['f1']:.4f} | Thr: {val_metrics['threshold']:.2f}")
 
                 if val_metrics['f1'] > best_val_f1:
                     best_val_f1 = val_metrics['f1']
@@ -229,7 +229,8 @@ class OptimizedTrainer:
                     torch.save({
                         'model_state_dict': self.model.state_dict(),
                         'val_metrics': val_metrics,
-                        'epoch': epoch
+                        'epoch': epoch,
+                        'best_threshold': val_metrics['threshold']
                     }, checkpoint_dir / best_model_name)
                 else:
                     patience_counter += 1

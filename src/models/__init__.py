@@ -20,7 +20,7 @@ from .gnn_layer import (
     create_gnn_encoder
 )
 
-from .las_mamba_gnn import LASMambaGNN, LASMambaGNNWithEntity, create_las_mamba_gnn
+from .mamba_gnn import LASMambaGNN, LASMambaGNNWithEntity, create_las_mamba_gnn
 
 
 __all__ = [

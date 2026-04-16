@@ -16,7 +16,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from src.dataset.elliptic_dataset import load_elliptic_dataset
-from src.models.las_mamba_gnn import create_las_mamba_gnn
+from src.models.mamba_gnn import create_las_mamba_gnn
 from src.utils.config import MODEL_CONFIG, get_device
 
 
