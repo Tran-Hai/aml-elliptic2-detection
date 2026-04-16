@@ -15,7 +15,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from src.dataset.elliptic_dataset import load_elliptic_dataset
-from src.models.mamba_gnn import create_las_mamba_gnn
+from src.models.mamba_gnn import create_mamba_gnn
 from src.models.loss import get_loss_function
 from src.utils.config import MODEL_CONFIG, LOSS_CONFIG, get_device
 from src.utils.metrics import compute_metrics, print_metrics
@@ -94,7 +94,7 @@ def main() -> None:
     data = data.to(device)
     
     print(f"Loading checkpoint: {checkpoint_path}")
-    model = create_las_mamba_gnn(MODEL_CONFIG).to(device)
+    model = create_mamba_gnn(MODEL_CONFIG).to(device)
     
     checkpoint = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
