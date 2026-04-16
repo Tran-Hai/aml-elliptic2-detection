@@ -19,9 +19,6 @@ RESULTS_DIR = BASE_DIR / "results"
 
 
 MODEL_CONFIG = {
-    'las_hidden_dim': 64,
-    'las_output_dim': 64,
-    
     'mamba_hidden_dim': 64,
     'mamba_output_dim': 64,
     'mamba_num_layers': 2,
@@ -42,7 +39,6 @@ MODEL_CONFIG = {
     
     'num_classes': 2,
     
-    'use_las': True,
     'use_mamba': True,
     'use_gnn': True,
 }
