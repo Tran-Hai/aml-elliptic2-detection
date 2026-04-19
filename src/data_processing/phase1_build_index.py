@@ -134,8 +134,9 @@ def main():
     CONNECTED_COMPONENTS_CSV = BASE_DIR / "data" / "raw" / "connected_components.csv"
     INDEX_DIR = BASE_DIR / "data" / "processed" / "index"
     
-
+    print(f"\n{'='*60}")
     print(f"BUILD INDEX - Phase 1")
+    print('='*60)
     
     start_time = time.time()
     
@@ -188,7 +189,9 @@ def main():
         elapsed = time.time() - start_time
         
         if all_valid:
+            print(f"\n{'='*60}")
             print(f"COMPLETED SUCCESSFULLY - Phase 1")
+            print('='*60)
             print(f"Index files saved to: {INDEX_DIR}")
             print(f"Total time: {elapsed:.2f} seconds")
             return 0

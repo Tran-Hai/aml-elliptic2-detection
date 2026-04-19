@@ -177,107 +177,20 @@ class FastEllipticDataset(Dataset):
     
     def get_batch(self, indices: List[int]) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Get a batch of sequences by global node indices (used by OptimizedTrainer
-        after k_hop_subgraph neighbor expansion).
-
-        Args:
-            indices: list of global node indices
-
+        Get a batch of sequences (for custom batching).
+        
         Returns:
             features: [batch_size, 2, 50, 96]
             labels: [batch_size]
         """
         batch_features = []
         batch_labels = []
-
-        for global_idx in indices:
-            features = self._load_sequence(global_idx)
-            label = self.labels[global_idx].item()
-            features = torch.tensor(features, dtype=torch.float32)
+        
+        for idx in indices:
+            features, label = self[idx]
             batch_features.append(features)
             batch_labels.append(label)
-
-        return torch.stack(batch_features), torch.tensor(batch_labels, dtype=torch.long)
-
-
-class EllipticDataLoader:
-    """
-    Custom DataLoader that handles graph structure properly.
-    """
-    
-    def __init__(
-        self,
-        dataset: FastEllipticDataset,
-        batch_size: int = 256,
-        shuffle: bool = True,
-        num_workers: int = 4,
-        pin_memory: bool = True,
-        edge_index: Optional[torch.Tensor] = None
-    ):
-        self.dataset = dataset
-        self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.num_workers = num_workers
-        self.pin_memory = pin_memory
-        self.edge_index = edge_index
         
-        self.loader = DataLoader(
-            dataset,
-            batch_size=batch_size,
-            shuffle=shuffle,
-            num_workers=num_workers,
-            pin_memory=pin_memory,
-            collate_fn=self._collate_fn
-        )
-    
-    def _collate_fn(self, batch: List[Tuple[torch.Tensor, torch.Tensor, int]]):
-        """Custom collate function with global indices."""
-        features = torch.stack([item[0] for item in batch])
-        labels = torch.stack([item[1] for item in batch])
-        global_indices = torch.tensor([item[2] for item in batch], dtype=torch.long)
-        return features, labels, global_indices
-    
-    def __iter__(self):
-        return iter(self.loader)
-    
-    def __len__(self):
-        return len(self.loader)
+        return torch.stack(batch_features), torch.stack(batch_labels)
 
 
-def load_elliptic_dataset(graph_dir, sequences_dir, split='train', index_dir=None, num_workers=4):
-    """
-    Factory function to create optimized Elliptic dataset.
-    
-    Args:
-        graph_dir: Path to graph directory
-        sequences_dir: Path to sequences directory
-        split: 'train', 'val', 'test', or 'all'
-        index_dir: Path to index directory (optional)
-        num_workers: Number of workers for parallel loading
-    
-    Returns:
-        FastEllipticDataset
-    """
-    return FastEllipticDataset(
-        graph_dir=graph_dir,
-        sequences_dir=sequences_dir,
-        index_dir=index_dir,
-        split=split
-    )
-
-
-def get_data_info(dataset):
-    """Print information about the loaded data."""
-    print("DATASET INFORMATION")
-    print(f"Number of nodes: {dataset.num_nodes:,}")
-    print(f"Number of edges: {dataset.num_edges:,}")
-    print(f"Dataset size: {len(dataset):,}")
-    print(f"Number of classes: 2")
-    print(f"\nClass distribution in dataset:")
-    
-    labels = dataset.labels[torch.tensor(dataset.indices)]
-    licit = (labels == 0).sum().item()
-    suspicious = (labels == 1).sum().item()
-    
-    print(f"  Licit: {licit:,} ({licit/len(labels)*100:.2f}%)")
-    print(f"  Suspicious: {suspicious:,} ({suspicious/len(labels)*100:.2f}%)")

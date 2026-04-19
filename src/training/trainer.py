@@ -1,12 +1,12 @@
 """
-Trainer class for Mamba-GNN model
-Optimized with Neighbor Expansion for Graph performance.
+Trainer class cho mô hình Mamba-GNN.
+Tích hợp Neighbor Expansion cho hiệu năng GNN và Mamba cho chuỗi thời gian.
 """
 
 import torch
 import torch.nn as nn
 from torch.optim import Adam
-from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from typing import Dict, Optional, Any, List, Tuple
 import numpy as np
 from pathlib import Path
@@ -14,9 +14,7 @@ from torch_geometric.utils import k_hop_subgraph
 
 
 def get_neighbor_subgraph(full_edge_index, batch_indices, num_hops=1):
-    """
-    Expand batch indices to include neighbors and return a relabeled local graph.
-    """
+    """Mở rộng batch indices để bao gồm các node lân cận."""
     if not isinstance(batch_indices, torch.Tensor):
         batch_indices = torch.tensor(batch_indices, dtype=torch.long)
     
@@ -26,14 +24,11 @@ def get_neighbor_subgraph(full_edge_index, batch_indices, num_hops=1):
         full_edge_index, 
         relabel_nodes=True
     )
-    
     return subset, local_edge_index, mapping
 
 
 class OptimizedTrainer:
-    """
-    Optimized trainer for Mamba-GNN with Neighbor Expansion.
-    """
+    """Trainer cho Mamba-GNN với Neighbor Expansion."""
     
     def __init__(
         self,
@@ -60,7 +55,7 @@ class OptimizedTrainer:
         )
 
     def _prepare_node_features(self, sequences):
-        """Helper to create 576-dim node features from [N, 2, 50, 96] sequences."""
+        """Tạo node features 576-dim [mean, max, last] từ chuỗi [N, 2, 50, 96]."""
         node_feat_list = []
         for flow_idx in [0, 1]:
             flow_data = sequences[:, flow_idx] # [N, 50, 96]
@@ -71,7 +66,6 @@ class OptimizedTrainer:
 
     def train_epoch(self, train_loader, dataset, edge_index, num_hops=1):
         self.model.train()
-        use_gnn = getattr(self.model, 'use_gnn', True)
         total_loss = 0.0
         num_batches = 0
 
@@ -79,18 +73,16 @@ class OptimizedTrainer:
             batch_global_indices = batch_global_indices.to(self.device)
             labels = labels.to(self.device)
 
-            if use_gnn and edge_index is not None:
-                # 1. Neighbor Expansion
+            if self.model.use_gnn and edge_index is not None:
+                # 1. Mở rộng đồ thị con
                 subset, local_edge_index, mapping = get_neighbor_subgraph(
                     edge_index, batch_global_indices, num_hops=num_hops
                 )
                 local_edge_index = local_edge_index.to(self.device)
                 
-                # 2. Load sequences for all nodes in subgraph
+                # 2. Load data chuỗi cho subgraph
                 all_sequences, _ = dataset.get_batch(subset.tolist())
                 all_sequences = all_sequences.to(self.device)
-                
-                # 3. Features for all nodes in subgraph
                 all_node_features = self._prepare_node_features(all_sequences)
                 
                 self.optimizer.zero_grad(set_to_none=True)
@@ -115,6 +107,7 @@ class OptimizedTrainer:
                         torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip_norm)
                         self.optimizer.step()
             else:
+                # Trường hợp không dùng GNN
                 sequences = sequences.to(self.device)
                 node_features = self._prepare_node_features(sequences)
                 self.optimizer.zero_grad()
@@ -128,7 +121,7 @@ class OptimizedTrainer:
                 num_batches += 1
             
             if batch_idx % 100 == 0:
-                self.print(f"  Batch {batch_idx}/{len(train_loader)}, Loss: {loss.item() if not torch.isnan(loss) else 0:.4f}")
+                self.print(f"  Batch {batch_idx}/{len(train_loader)}, Loss: {loss.item():.4f}")
         
         return {'loss': total_loss / num_batches if num_batches > 0 else 0.0}
 
@@ -138,14 +131,13 @@ class OptimizedTrainer:
         all_probs, all_labels = [], []
         total_loss = 0.0
         num_batches = 0
-        use_gnn = getattr(self.model, 'use_gnn', True)
 
         with torch.no_grad():
             for sequences, labels, batch_global_indices in loader:
                 batch_global_indices = batch_global_indices.to(self.device)
                 labels = labels.to(self.device)
 
-                if use_gnn and edge_index is not None:
+                if self.model.use_gnn and edge_index is not None:
                     subset, local_edge_index, mapping = get_neighbor_subgraph(
                         edge_index, batch_global_indices, num_hops=num_hops
                     )
@@ -172,10 +164,9 @@ class OptimizedTrainer:
         y_true = torch.cat(all_labels)
         y_prob = torch.cat(all_probs)
         
-        # Search for best threshold for F1
-        best_f1 = -1.0
-        best_thr = 0.3
-        for thr in np.arange(0.1, 0.9, 0.05):
+        # Tìm ngưỡng tối ưu cho F1
+        best_f1, best_thr = -1.0, 0.2
+        for thr in np.arange(0.05, 0.9, 0.05):
             y_pred = (y_prob > thr).long()
             metrics_t = compute_metrics(y_true, y_pred, y_prob)
             if metrics_t['f1'] > best_f1:
@@ -199,9 +190,7 @@ class OptimizedTrainer:
         num_hops: int = 1,
         val_interval: int = 1,
         early_stopping_patience: int = 15,
-        checkpoint_dir=None,
-        best_model_name: str = 'best_model.pt',
-        verbose: bool = True
+        checkpoint_dir=None
     ):
         if checkpoint_dir is None:
             checkpoint_dir = Path("checkpoints")
@@ -220,8 +209,7 @@ class OptimizedTrainer:
                 history['val_loss'].append(val_metrics['loss'])
                 history['val_f1'].append(val_metrics['f1'])
                 
-                if verbose:
-                    self.print(f"Epoch {epoch:03d} | Train Loss: {train_results['loss']:.4f} | Val F1: {val_metrics['f1']:.4f} | Thr: {val_metrics['threshold']:.2f}")
+                self.print(f"Epoch {epoch:03d} | Train Loss: {train_results['loss']:.4f} | Val F1: {val_metrics['f1']:.4f} | Thr: {val_metrics['threshold']:.2f}")
 
                 if val_metrics['f1'] > best_val_f1:
                     best_val_f1 = val_metrics['f1']
@@ -231,7 +219,7 @@ class OptimizedTrainer:
                         'val_metrics': val_metrics,
                         'epoch': epoch,
                         'best_threshold': val_metrics['threshold']
-                    }, checkpoint_dir / best_model_name)
+                    }, checkpoint_dir / 'best_model.pt')
                 else:
                     patience_counter += 1
 

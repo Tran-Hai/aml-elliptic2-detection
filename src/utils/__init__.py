@@ -28,6 +28,11 @@ from .config import (
     SEQUENCES_DIR
 )
 
+from .graph_utils import (
+    get_local_edge_index
+)
+
+
 __all__ = [
     'compute_metrics',
     'print_metrics',

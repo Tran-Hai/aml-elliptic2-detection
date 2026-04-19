@@ -126,7 +126,9 @@ def main():
     SEQUENCES_DIR = BASE_DIR / "data" / "processed" / "sequences"
     SEQUENCE_LENGTH = 50
     
+    print(f"\n{'='*60}")
     print(f"BUILD SEQUENCES - Phase 3")
+    print('='*60)
     print(f"Sequence length K: {SEQUENCE_LENGTH}")
     print(f"Padding: Pre-padding (zeros at beginning)")
     
@@ -205,7 +207,9 @@ def main():
         # Final stats
         elapsed = time.time() - start_time
         
+        print(f"\n{'='*60}")
         print(f"SEQUENCE BUILDING COMPLETE - Phase 3")
+        print('='*60)
         print(f"Total nodes: {stats['total_nodes']:,}")
         print(f"Successfully processed: {stats['processed']:,}")
         print(f"Failed: {stats['failed']:,}")
@@ -221,7 +225,9 @@ def main():
         print(f"Total disk usage: {total_size / 1024**3:.2f} GB")
         
         print(f"Total time: {elapsed:.2f} seconds ({elapsed/60:.1f} minutes)")
+        print(f"\n{'='*60}")
         print(f"COMPLETED SUCCESSFULLY - Phase 3")
+        print('='*60)
         print(f"Sequence files saved to: {SEQUENCES_DIR}")
         
         return 0
